@@ -1,0 +1,11 @@
+[package]
+name = "puncture-payment-request"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lightning = { workspace = true }
+lightning-invoice = { workspace = true }
+lnurl-pay = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true } 

@@ -1,0 +1,9 @@
+[package]
+name = "puncture-cli-core"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+bitcoin = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
