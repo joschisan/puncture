@@ -1,0 +1,21 @@
+services:
+  puncture:
+    image: ghcr.io/joschisan/puncture:main
+    container_name: puncture-daemon
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "9735:9735"
+    volumes:
+      - puncture_data:/data/puncture
+      - ldk_data:/data/ldk
+    environment:
+      - PUNCTURE_DATA_DIR=/data/puncture
+      - LDK_DATA_DIR=/data/ldk
+      - BITCOIN_NETWORK=bitcoin
+      - ESPLORA_RPC_URL=https://blockstream.info/api
+      - DAEMON_NAME=<your-daemon-name-here> # Change this!
+
+volumes:
+  puncture_data:
+  ldk_data: 

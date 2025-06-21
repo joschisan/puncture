@@ -1,0 +1,214 @@
+# Puncture
+
+A daemon with integrated LDK node serving as a backend for the Puncture Flutter app that you can find at https://github.com/joschisan/puncture-app. The app communicates with this daemon via direct QUIC connections that are established via hole-punching. The connections are encrypted and autheticated via static ED25519 keys that identify both the daemon instance and the user to each other. Therefore the daemon does not require a public ip to accept incoming connections and can be deployed on any machine with an internet connection - without configuring TLS or networking in any way. Any machine with internet access and docker installed can deploy a daemon instance within minutes using our referce docker compose file linked below.
+
+## Features
+
+- **Single Binary**: The daemon contains an embedded LDK lightning node
+- **No Domain Registration**: Daemon does not require a domain, public ip or TLS
+- **Hole Punching**: Direct peer-to-peer connections without port forwarding
+- **Ed25519 End-to-End Encryption**: Secure client to server communication using Ed25519
+- **Built on Iroh**: Uses [Iroh](https://iroh.computer/) for networking and QUIC transport
+- **Admin CLI Tool**: Comprehensive command-line interface for all administrative operations
+
+⚠️ **Beta Status**: Not recommended for use with significant amounts
+
+## Deploy with Docker
+
+Download our reference docker-compose.yml with
+
+```bash
+curl -O https://raw.githubusercontent.com/joschisan/puncture/main/docker-compose.yml
+```
+
+and substitute your daemon instance name to be displayed to your users. Then you can deploy the daemon with 
+
+```bash
+docker-compose up -d
+```
+
+## Quickstart
+
+### Accesing the Admin CLI
+
+The `puncture-cli` binary is included in the Docker container and available in the PATH. Open an interactive shell inside the container via:
+
+```bash
+docker exec -it puncture-daemon bash
+```
+
+Or run cli commands directly like:
+
+```bash
+docker exec puncture-daemon puncture-cli --help
+```
+
+### Invite Users
+
+Users need an invite code to connect to your daemon. Each invite code has an expiration time and a limit for the number of users that may register with it. You can create an invite code with defaults via:
+
+```bash
+puncture-cli invite
+```
+
+or set custom a custom expiration and user limit with
+
+```bash
+puncture-cli invite --expiry-days 1 --user-limit 10
+```
+
+### Inbound Liquidity Setup
+
+Now your daemon needs inbound liquidity such that your uses can start receiving payments. You can purchase an incoming channel from Lightning Service Providers (LSPs). We recommend [LN Big](https://lnbig.com) as a reliable option.
+
+Most LSPs require your lightning node to have onchain balance, so you'll need to fund your node first. You can generate an onchain address for your LDK Node with.
+
+```bash
+puncture-cli ldk onchain receive
+```
+
+Send Bitcoin to the generated address. Then get your node ID to request a incoming channel from the LSP:
+
+```bash
+puncture-cli ldk node-id
+```
+
+After requesting a channel with your node ID you might be asked to connect to the LSP's node in order complete the process:
+
+```bash
+puncture-cli ldk peer connect --node-id [LSP_NODE_ID] --address [LSP_ADDRESS] --persist
+```
+
+Replace `[LSP_NODE_ID]` and `[LSP_ADDRESS]` with the details provided by your chosen LSP. Once the process is complete you can monitor the confirmation of your channel via 
+
+```bash
+puncture-cli ldk channel list
+```
+
+**Only once the channel is confirmed your users will be able to generate Bolt12 Offers.**
+
+If you only have a single incoming channel draining your user's entire overall balance might conflict with channel reserves, meaning outgoing payments might fail if the sum of all user balances approaches towards zero. This can be mitigated by maintaining a buffer of sats in your personal user account or by opening an outgoing channel for a total of two channels.
+
+A common approach would be to open a channel to you already connected LSP Node via:
+
+```bash
+puncture-cli ldk channel open --node-id [LSP_NODE_ID] --address [LSP_ADDRESS] --channel-amount-sats 1000000
+```
+
+## Interfaces
+
+The daemon listens on network interfaces:
+
+- **0.0.0.0:8080**: Public Iroh API for user operations (exposed)
+- **0.0.0.0:9735**: Lightning P2P network (exposed)  
+- **127.0.0.1:9090**: Admin cli http service (localhost only, **never publicly exposed**)
+
+The admin cli network interface is **hardcoded to `127.0.0.1:9090`** in both the daemon and CLI for security. This ensures the admin interface can never be accidentally exposed to the internet, even with misconfigurations.
+
+## Daemon Configuration Reference
+
+### Required Environment Variables
+
+| Env | Description |
+|-----|-------------|
+| `PUNCTURE_DATA_DIR` | Directory path for storing user account data in a SQLite database |
+| `LDK_DATA_DIR` | Directory path for storing LDK node data in a SQLite database |
+| `BITCOIN_NETWORK` | Bitcoin network to operate on, determines address formats and chain validation rules |
+| `BITCOIN_RPC_URL` | Bitcoin Core RPC URL for chain data access |
+| `ESPLORA_RPC_URL` | Esplora API URL for chain data access |
+| `DAEMON_NAME` | Daemon instance name as displayed to your users |
+
+*Note: Either `BITCOIN_RPC_URL` or `ESPLORA_RPC_URL` must be provided, but not both.*
+
+### Optional Environment Variables
+
+| Env | Default | Description |
+|-----|---------|-------------|
+| `LOG_LEVEL` | info | The log level, can be set to either error, warn, info, debug or trace. 
+| `FEE_PPM` | 10000 | Fee rate in parts per million (PPM) applied to outgoing Lightning payments |
+| `BASE_FEE_MSAT` | 50000 | Fixed base fee in millisatoshis added to all outgoing Lightning payments |
+| `INVOICE_EXPIRY_SECS` | 3600 | Expiration time in seconds for all generated Lightning invoices |
+| `API_BIND` | 0.0.0.0:8080 | Network address and port for the Iroh API endpoint to bind to |
+| `LDK_BIND` | 0.0.0.0:9735 | Network address and port for the Lightning node to listen for peer connections |
+| `MIN_AMOUNT_SATS` | 1 | Minimum amount in satoshis enforced across all incoming and outgoing payments |
+| `MAX_AMOUNT_SATS` | 100000 | Maximum amount in satoshis enforced across all incoming and outgoing payments |
+| `MAX_PENDING_PAYMENTS_PER_USER` | 10 | Maximum number of pending invoices and outgoing payments each user can have simultaneously |
+
+*Note: The admin cli interface always binds to `127.0.0.1:9090` and is not configurable for security reasons.*
+
+## Admin CLI Command Reference
+
+**All commands must be run inside the container or via docker exec. The CLI connects to the hardcoded admin interface at `127.0.0.1:9090`.**
+
+Generate invite code (expires in 1 day, for a maximum of 10 users):
+
+```bash
+puncture-cli invite --expiry-days 1 --user-limit 10
+```
+
+Get your node ID (share this with LSPs for inbound channels):
+
+```bash
+puncture-cli ldk node-id
+```
+
+Inspect your balances:
+
+```bash
+puncture-cli ldk balances
+```
+
+Generate receiving address:
+
+```bash
+puncture-cli ldk onchain receive
+```
+
+Send on-chain payment:
+
+```bash
+puncture-cli ldk onchain send --address bc1q... --amount-sats 100000 --fee-rate 10
+```
+
+Open channel to peer:
+
+```bash
+puncture-cli ldk channel open --node-id 03abc... --address 127.0.0.1:9735 --channel-amount-sats 1000000
+```
+
+Close a channel:
+
+```bash
+puncture-cli ldk channel close --user-channel-id 12345 --counterparty-node-id 03abc... 
+```
+
+List channels:
+
+```bash
+puncture-cli ldk channel list
+```
+
+Connect to peer:
+
+```bash
+puncture-cli ldk peer connect --node-id 03abc... --address 127.0.0.1:9735
+```
+
+Disconnect from peer:
+
+```bash
+puncture-cli ldk peer disconnect --counterparty-node-id 03abc...
+```
+
+List connected peers:
+
+```bash
+puncture-cli ldk peer list
+```
+
+List registered users:
+
+```bash
+puncture-cli user list
+```
+

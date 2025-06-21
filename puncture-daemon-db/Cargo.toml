@@ -1,0 +1,9 @@
+[package]
+name = "puncture-daemon-db"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+bitcoin = { workspace = true }
+diesel = { workspace = true }
+diesel_migrations = { workspace = true } 

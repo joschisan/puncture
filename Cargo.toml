@@ -1,0 +1,56 @@
+[workspace]
+members = [
+    "puncture-cli",
+    "puncture-cli-core",
+    "puncture-client",
+    "puncture-client-core",
+    "puncture-client-db",
+    "puncture-core",
+    "puncture-daemon",
+    "puncture-daemon-db",
+    "puncture-payment-request",
+    "puncture-testing",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+anyhow = "1.0.98"
+axum = { version = "0.8.4", features = ["macros"] }
+bitcoin = { version = "0.32.6", features = ["serde"] }
+bitcoincore-rpc = "0.19.0"
+clap = { version = "4.5.40", features = ["derive", "env"] }
+dashmap = "5.5"
+diesel = { version = "2.2.11", features = ["sqlite", "r2d2"] }
+diesel_migrations = "2.2.0"
+futures = "0.3.31"
+iroh = { version = "0.90.0" }
+ldk-node = "0.6.0" 
+lightning = "0.1.4"
+lightning-invoice = { version = "0.33.1", features = ["serde"] }
+lightning-types = "0.2.0"
+lnurl-pay = "0.6.0"
+postcard = { version = "1.0.11", features = ["alloc"] }
+puncture-cli = { path = "puncture-cli" }
+puncture-cli-core = { path = "puncture-cli-core" }
+puncture-client = { path = "puncture-client" }
+puncture-client-core = { path = "puncture-client-core" }
+puncture-client-db = { path = "puncture-client-db" }
+puncture-core = { path = "puncture-core" }
+puncture-daemon = { path = "puncture-daemon" }
+puncture-daemon-db = { path = "puncture-daemon-db" }
+puncture-payment-request = { path = "puncture-payment-request" }
+rand = "0.9.1"
+reqwest = { version = "0.12.20", features = ["json", "blocking"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140" 
+tokio = { version = "1.45.1", features = ["full"] }
+tokio-stream = { version = "0.1.17", features = ["sync"] }
+tokio-util = "0.7.15"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+url = { version = "2.5.4", features = ["serde"] }
+
