@@ -1,0 +1,10 @@
+[package]
+name = "puncture-api-core"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+bitcoin = { workspace = true }
+lightning = { workspace = true }
+lightning-invoice = { workspace = true }
+serde = { workspace = true } 
