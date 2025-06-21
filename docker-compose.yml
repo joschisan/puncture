@@ -1,0 +1,27 @@
+services:
+  puncture:
+    image: ghcr.io/joschisan/puncture:main
+    container_name: puncture-daemon
+    restart: unless-stopped
+    ports:
+      # Client Interface (safe to expose publicly)
+      - "8080:8080"            
+      # Lightning P2P Interface (safe to expose publicly)
+      - "8081:8081"           
+      # Admin CLI Interface (uncomment for local access only)
+      # - "127.0.0.1:8082:8082"  
+      # Admin UI Interface (uncomment for local access only)
+      # - "127.0.0.1:8083:8083"  
+    volumes:
+      - puncture_data:/data/puncture
+      - ldk_data:/data/ldk
+    environment:
+      - PUNCTURE_DATA_DIR=/data/puncture
+      - LDK_DATA_DIR=/data/ldk
+      - BITCOIN_NETWORK=bitcoin
+      - ESPLORA_RPC_URL=https://blockstream.info/api
+      - DAEMON_NAME=<your-daemon-name-here> # Change this!
+
+volumes:
+  puncture_data:
+  ldk_data: 

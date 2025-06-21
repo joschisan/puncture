@@ -1,0 +1,100 @@
+name: Build StartOS Package (x86)
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  build-startos-x86:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Install docker and setup buildx
+      run: |
+        # 1. Install docker (already available in GitHub Actions)
+        # 2. Set buildx as the default builder
+        docker buildx install
+        docker buildx create --use
+        
+        # 3. Enable cross-arch emulated builds in docker
+        docker run --privileged --rm linuxkit/binfmt:v0.8
+
+    - name: Install yq
+      run: |
+        # 4. Install yq
+        sudo snap install yq
+
+    - name: Install deno
+      run: |
+        # 5. Install deno
+        sudo snap install deno
+
+    - name: Install essentials build packages
+      run: |
+        # 6. Install essentials build packages
+        sudo apt-get install -y build-essential openssl libssl-dev libc6-dev clang libclang-dev ca-certificates
+
+    - name: Install Rust
+      run: |
+        # 7. Install Rust
+        curl https://sh.rustup.rs -sSf | sh -s -- -y
+        source $HOME/.cargo/env
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Build and install start-sdk
+      run: |
+        # 8. Build and install start-sdk
+        git clone https://github.com/Start9Labs/start-os.git && \
+         cd start-os && git submodule update --init --recursive && \
+         make sdk
+        
+        # Add start-sdk to PATH
+        echo "$(pwd)/target/release" >> $GITHUB_PATH
+        
+        # Initialize sdk & verify install
+        export PATH="$(pwd)/target/release:$PATH"
+        start-sdk init
+        start-sdk --version
+
+    - name: Build StartOS x86 Package
+      working-directory: puncture-startos
+      run: |
+        # Ensure start-sdk is in PATH (GitHub Actions PATH may not persist)
+        export PATH="$GITHUB_WORKSPACE/start-os/target/release:$PATH"
+        
+        # Verify start-sdk is available
+        which start-sdk
+        start-sdk --version
+        
+        # Build x86 package using fedimint-style Makefile
+        make x86
+        
+        echo "Package created successfully:"
+        ls -lh puncture.s9pk
+
+    - name: Upload StartOS Package as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: puncture-startos-x86
+        path: puncture-startos/puncture.s9pk
+
+    - name: Upload to Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: latest
+        name: "Latest StartOS Package"
+        artifacts: "puncture-startos/puncture.s9pk"
+        allowUpdates: true
+        replacesArtifacts: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
