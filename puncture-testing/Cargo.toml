@@ -1,0 +1,21 @@
+[package]
+name = "puncture-testing"
+version = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+anyhow = { workspace = true }
+bitcoin = { workspace = true }
+bitcoincore-rpc = { workspace = true }
+ldk-node = { workspace = true }
+lightning = { workspace = true }
+lightning-invoice = { workspace = true }
+lightning-types = { workspace = true }
+puncture-client-core = { workspace = true }
+puncture-cli-core = { workspace = true }
+puncture-client = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+
+
