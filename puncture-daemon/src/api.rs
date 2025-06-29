@@ -57,6 +57,8 @@ pub async fn run_iroh_api(endpoint: Endpoint, app_state: AppState) -> anyhow::Re
 }
 
 async fn handle_connection(app_state: Arc<AppState>, incoming: Incoming) -> anyhow::Result<()> {
+    let _permit = app_state.semaphore.acquire().await;
+
     let connection = incoming.accept()?.await?;
 
     let node_id = connection.remote_node_id()?;
