@@ -1,15 +1,17 @@
 use std::{future, sync::Arc};
 
-use anyhow::ensure;
+use anyhow::{Result, anyhow, ensure};
 use bitcoin::hashes::Hash;
-use futures::{FutureExt, stream};
+use futures::stream;
+use iroh::endpoint::Connection;
 use iroh::{Endpoint, endpoint::Incoming};
 use ldk_node::payment::SendingParameters;
 use lightning_invoice::{Bolt11InvoiceDescription, Description};
 use serde::Deserialize;
 use serde_json::Value;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio_stream::{Stream, StreamExt};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use puncture_api_core::{
     AppEvent, Balance, Bolt11QuoteResponse, Bolt11ReceiveResponse, ConfigResponse,
@@ -44,42 +46,72 @@ pub async fn run_iroh_api(endpoint: Endpoint, app_state: AppState) -> anyhow::Re
     );
 
     while let Some(incoming) = endpoint.accept().await {
-        tokio::spawn(
-            handle_connection(app_state.clone(), incoming).then(|result| async {
-                if let Err(e) = result {
-                    error!(?e, "Error handling connection");
-                }
-            }),
-        );
+        if let Err(e) = handle_connection(app_state.clone(), incoming).await {
+            warn!(?e, "Error handling connection");
+        }
     }
 
     Ok(())
 }
 
 async fn handle_connection(app_state: Arc<AppState>, incoming: Incoming) -> anyhow::Result<()> {
-    let _permit = app_state.semaphore.acquire().await;
-
     let connection = incoming.accept()?.await?;
 
-    let node_id = connection.remote_node_id()?;
+    let node_id = connection.remote_node_id()?.to_string();
 
-    if !db::user_exists(&app_state.db, node_id.to_string()).await {
+    if !db::user_exists(&app_state.db, node_id.clone()).await {
         ensure!(
             app_state.args.max_users as i64 > db::user_count(&app_state.db).await,
             "Max users reached, no more users can register"
         );
 
-        db::register_user(&app_state.db, node_id.to_string()).await;
+        db::register_user(&app_state.db, node_id.clone()).await;
+
+        info!(?node_id, "New user registered");
     }
 
-    let mut event_stream = Box::pin(events(app_state.clone(), node_id.to_string()).await);
+    let counter = app_state
+        .semaphore
+        .entry(node_id.clone())
+        .or_insert_with(|| AtomicUsize::new(0));
+
+    ensure!(
+        counter.load(Ordering::Relaxed) < 3,
+        "User has reached maximum of 3 connections"
+    );
+
+    counter.fetch_add(1, Ordering::Relaxed);
+
+    drop(counter);
+
+    tokio::spawn(async move {
+        if let Err(e) = drive_connection(app_state.clone(), connection, node_id.clone()).await {
+            warn!(?e, "Error while driving connection");
+        }
+
+        app_state
+            .semaphore
+            .get(&node_id)
+            .expect("Counter not found")
+            .fetch_sub(1, Ordering::Relaxed);
+    });
+
+    Ok(())
+}
+
+async fn drive_connection(
+    app_state: Arc<AppState>,
+    connection: Connection,
+    node_id: String,
+) -> anyhow::Result<()> {
+    let mut event_stream = Box::pin(events(app_state.clone(), node_id.clone()).await);
 
     loop {
         tokio::select! {
             stream = connection.accept_bi() => {
                 match stream {
                     Ok((send, recv)) => {
-                        handle_request(app_state.clone(), node_id.to_string(), send, recv).await?;
+                        handle_request(app_state.clone(), node_id.clone(), send, recv).await?;
                     }
                     Err(..) => {
                         return Ok(());
@@ -87,7 +119,7 @@ async fn handle_connection(app_state: Arc<AppState>, incoming: Incoming) -> anyh
                 }
             }
             event = event_stream.next() => {
-                let event = event.unwrap().map_err(|e| anyhow::anyhow!(e))?;
+                let event = event.unwrap().map_err(|e| anyhow!(e))?;
 
                 let event = serde_json::to_vec(&event).expect("Failed to serialize event");
 

@@ -10,13 +10,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result, ensure};
+use std::sync::atomic::AtomicUsize;
 
 use clap::{ArgGroup, Parser};
+use dashmap::DashMap;
 use iroh::Endpoint;
 use ldk_node::bitcoin::Network;
 use ldk_node::{Builder, Event, Node};
 use tokio::net::TcpListener;
-use tokio::sync::Semaphore;
 use tracing::{info, warn};
 use url::Url;
 
@@ -108,7 +109,7 @@ struct AppState {
     event_bus: EventBus,
     send_lock: Arc<tokio::sync::Mutex<()>>,
     endpoint: Endpoint,
-    semaphore: Arc<Semaphore>,
+    semaphore: Arc<DashMap<String, AtomicUsize>>,
 }
 
 impl AppState {
@@ -220,7 +221,7 @@ fn main() -> Result<()> {
         event_bus,
         send_lock: Arc::new(tokio::sync::Mutex::new(())),
         endpoint: endpoint.clone(),
-        semaphore: Arc::new(Semaphore::new(args.max_users as usize)),
+        semaphore: Arc::new(DashMap::new()),
     };
 
     runtime.spawn(api::run_iroh_api(endpoint, app_state.clone()));
