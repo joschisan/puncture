@@ -90,6 +90,10 @@ struct Args {
     #[arg(long, env = "MAX_AMOUNT_SATS", default_value = "100000")]
     max_amount_sats: u32,
 
+    /// Maximum number of users allowed to register.
+    #[arg(long, env = "MAX_USERS", default_value = "1000")]
+    max_users: u32,
+
     /// Maximum number of pending invoices and outgoing payments each user can have simultaneously.
     #[arg(long, env = "MAX_PENDING_PAYMENTS_PER_USER", default_value = "10")]
     max_pending_payments_per_user: u32,

@@ -1,5 +1,6 @@
 use std::{future, sync::Arc};
 
+use anyhow::ensure;
 use bitcoin::hashes::Hash;
 use futures::{FutureExt, stream};
 use iroh::{Endpoint, endpoint::Incoming};
@@ -59,6 +60,15 @@ async fn handle_connection(app_state: Arc<AppState>, incoming: Incoming) -> anyh
     let connection = incoming.accept()?.await?;
 
     let node_id = connection.remote_node_id()?;
+
+    if !db::user_exists(&app_state.db, node_id.to_string()).await {
+        ensure!(
+            app_state.args.max_users as i64 > db::user_count(&app_state.db).await,
+            "Max users reached, no more users can register"
+        );
+
+        db::register_user(&app_state.db, node_id.to_string()).await;
+    }
 
     let mut event_stream = Box::pin(events(app_state.clone(), node_id.to_string()).await);
 

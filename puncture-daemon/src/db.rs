@@ -260,3 +260,46 @@ pub async fn count_pending_bolt11_sends(db: &DbConnection, user_pk: String) -> i
     .await
     .expect("Failed to join task")
 }
+
+pub async fn user_exists(db: &DbConnection, user_pk: String) -> bool {
+    let mut conn = db.get().expect("Failed to get connection from pool");
+
+    tokio::task::spawn_blocking(move || {
+        diesel::select(diesel::dsl::exists(
+            users::table.filter(users::user_pk.eq(user_pk)),
+        ))
+        .get_result::<bool>(&mut *conn)
+        .expect("Failed to check if user exists")
+    })
+    .await
+    .expect("Failed to join task")
+}
+
+pub async fn user_count(db: &DbConnection) -> i64 {
+    let mut conn = db.get().expect("Failed to get connection from pool");
+
+    tokio::task::spawn_blocking(move || {
+        users::table
+            .count()
+            .first::<i64>(&mut *conn)
+            .expect("Failed to count users")
+    })
+    .await
+    .expect("Failed to join task")
+}
+
+pub async fn register_user(db: &DbConnection, user_pk: String) {
+    let mut conn = db.get().expect("Failed to get connection from pool");
+
+    tokio::task::spawn_blocking(move || {
+        diesel::insert_into(users::table)
+            .values(&User {
+                user_pk,
+                created_at: unix_time(),
+            })
+            .execute(&mut *conn)
+            .expect("Failed to register user");
+    })
+    .await
+    .expect("Failed to join task")
+}
