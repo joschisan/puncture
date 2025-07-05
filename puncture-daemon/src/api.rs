@@ -4,7 +4,6 @@ use std::{future, sync::Arc};
 
 use anyhow::{Context, Result, anyhow, ensure};
 use bitcoin::hashes::Hash;
-use bitcoin::hex::DisplayHex;
 use futures::FutureExt;
 use futures::stream;
 use iroh::endpoint::Connection;
@@ -301,11 +300,13 @@ pub async fn bolt11_send(
                 }
             }
 
-            let receive_record = invoice.clone().into_receive_record(request.amount_msat);
+            let record = invoice
+                .clone()
+                .into_receive_record(payment_hash, request.amount_msat);
 
-            db::create_receive_payment(&state.db, receive_record.clone()).await;
+            db::create_receive_payment(&state.db, record.clone()).await;
 
-            push_events(state.clone(), invoice.user_pk.clone(), receive_record).await;
+            push_events(state.clone(), invoice.user_pk.clone(), record).await;
 
             "successful".to_string()
         }
@@ -357,7 +358,7 @@ pub async fn bolt12_send(
 
     let offer = Offer::from_str(&request.offer).map_err(|_| "Invalid offer".to_string())?;
 
-    let (payment_id, send_status) = match db::get_offer(&state.db, offer.id().0).await {
+    let (payment_id, status) = match db::get_offer(&state.db, offer.id().0).await {
         Some(offer) => {
             if offer.user_pk == user_pk {
                 return Err("This is your own payment request".to_string());
@@ -371,15 +372,15 @@ pub async fn bolt12_send(
 
             let payment_id: [u8; 32] = rand::rng().random();
 
-            let receive_record = offer
+            let record = offer
                 .clone()
-                .into_receive_record(payment_id.as_hex().to_string(), request.amount_msat);
+                .into_receive_record(payment_id, request.amount_msat);
 
-            db::create_receive_payment(&state.db, receive_record.clone()).await;
+            db::create_receive_payment(&state.db, record.clone()).await;
 
-            push_events(state.clone(), offer.user_pk.clone(), receive_record).await;
+            push_events(state.clone(), offer.user_pk.clone(), record).await;
 
-            (payment_id, "successful".to_string())
+            (payment_id, "successful")
         }
         None => {
             let payment_id = state
@@ -389,7 +390,7 @@ pub async fn bolt12_send(
                 .inspect_err(|error| error!(?error, "ldk node bolt12 send error"))
                 .map_err(|e| e.to_string())?;
 
-            (payment_id.0, "pending".to_string())
+            (payment_id.0, "pending")
         }
     };
 
@@ -401,7 +402,7 @@ pub async fn bolt12_send(
         fee_msat as i64,
         offer.description().unwrap().to_string(),
         offer.to_string(),
-        send_status,
+        status.to_string(),
         None,
     )
     .await;

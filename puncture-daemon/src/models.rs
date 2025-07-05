@@ -1,3 +1,4 @@
+use bitcoin::hex::DisplayHex;
 use diesel::{Insertable, Queryable, Selectable};
 use puncture_api_core::Payment;
 
@@ -35,9 +36,9 @@ pub struct InvoiceRecord {
 
 #[allow(clippy::from_over_into)]
 impl InvoiceRecord {
-    pub fn into_receive_record(self, amount_msat: u64) -> ReceiveRecord {
+    pub fn into_receive_record(self, id: [u8; 32], amount_msat: u64) -> ReceiveRecord {
         ReceiveRecord {
-            id: self.id,
+            id: id.as_hex().to_string(),
             user_pk: self.user_pk,
             amount_msat: amount_msat as i64,
             description: self.description,
@@ -122,9 +123,9 @@ pub struct OfferRecord {
 }
 
 impl OfferRecord {
-    pub fn into_receive_record(self, id: String, amount_msat: u64) -> ReceiveRecord {
+    pub fn into_receive_record(self, id: [u8; 32], amount_msat: u64) -> ReceiveRecord {
         ReceiveRecord {
-            id,
+            id: id.as_hex().to_string(),
             user_pk: self.user_pk,
             amount_msat: amount_msat as i64,
             description: self.description,

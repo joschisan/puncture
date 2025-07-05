@@ -60,12 +60,14 @@ pub async fn create_send_payment(
     .expect("Failed to join task")
 }
 
-pub async fn update_send_payment_status(
+pub async fn update_send_status(
     db: &DbConnection,
     payment_hash: [u8; 32],
-    status: String,
+    status: &str,
 ) -> SendRecord {
     let mut conn = db.get().expect("Failed to get connection from pool");
+
+    let status = status.to_string();
 
     tokio::task::spawn_blocking(move || {
         diesel::update(send::table.find(&payment_hash.as_hex().to_string()))

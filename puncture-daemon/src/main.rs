@@ -11,7 +11,6 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 
 use anyhow::{Context, Result, ensure};
-use bitcoin::hex::DisplayHex;
 use clap::{ArgGroup, Parser};
 use dashmap::DashMap;
 use iroh::Endpoint;
@@ -245,7 +244,7 @@ async fn process_events(node: Arc<Node>, db: DbConnection, event_bus: EventBus) 
                 amount_msat,
                 ..
             } => {
-                let receive_record = match node
+                let record = match node
                     .payment(&payment_id.unwrap())
                     .expect("Payment not found")
                     .kind
@@ -253,71 +252,47 @@ async fn process_events(node: Arc<Node>, db: DbConnection, event_bus: EventBus) 
                     PaymentKind::Bolt11 { hash, .. } => db::get_invoice(&db, hash.0)
                         .await
                         .expect("Invoice not found")
-                        .into_receive_record(amount_msat),
+                        .into_receive_record(payment_id.unwrap().0, amount_msat),
                     PaymentKind::Bolt12Offer { offer_id, .. } => db::get_offer(&db, offer_id.0)
                         .await
                         .expect("Offer not found")
-                        .into_receive_record(
-                            payment_id.unwrap().0.as_hex().to_string(),
-                            amount_msat,
-                        ),
+                        .into_receive_record(payment_id.unwrap().0, amount_msat),
                     _ => panic!("Unexpected payment kind"),
                 };
 
-                info!(?amount_msat, ?receive_record.user_pk, "payment received");
+                info!(?amount_msat, ?record.user_pk, "payment received");
 
-                assert_eq!(receive_record.amount_msat as u64, amount_msat);
+                assert_eq!(record.amount_msat as u64, amount_msat);
 
-                db::create_receive_payment(&db, receive_record.clone()).await;
+                db::create_receive_payment(&db, record.clone()).await;
 
-                let balance_msat = db::user_balance(&db, receive_record.user_pk.clone()).await;
+                let balance_msat = db::user_balance(&db, record.user_pk.clone()).await;
 
-                event_bus.send_balance_event(receive_record.user_pk.clone(), balance_msat);
+                event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
 
-                event_bus.send_payment_event(
-                    receive_record.user_pk.clone(),
-                    receive_record.clone().into(),
-                );
+                event_bus.send_payment_event(record.user_pk.clone(), record.clone().into());
             }
             Event::PaymentSuccessful { payment_id, .. } => {
-                let send_record = db::update_send_payment_status(
-                    &db,
-                    payment_id.unwrap().0,
-                    "successful".to_string(),
-                )
-                .await;
+                let record = db::update_send_status(&db, payment_id.unwrap().0, "successful").await;
 
-                let latency_ms = unix_time().saturating_sub(send_record.created_at);
+                let latency_ms = unix_time().saturating_sub(record.created_at);
 
-                info!(?send_record.user_pk, ?latency_ms, "payment successful");
+                info!(?record.user_pk, ?latency_ms, "payment successful");
 
-                event_bus.send_update_event(
-                    send_record.user_pk.clone(),
-                    send_record.id.clone(),
-                    "successful".to_string(),
-                );
+                event_bus.send_update_event(record.user_pk, record.id, "successful");
             }
             Event::PaymentFailed { payment_id, .. } => {
-                let send_record = db::update_send_payment_status(
-                    &db,
-                    payment_id.unwrap().0,
-                    "failed".to_string(),
-                )
-                .await;
+                let record = db::update_send_status(&db, payment_id.unwrap().0, "failed").await;
 
-                let latency_ms = unix_time().saturating_sub(send_record.created_at);
+                let latency_ms = unix_time().saturating_sub(record.created_at);
 
-                warn!(?send_record.user_pk, ?latency_ms, "payment failed");
+                warn!(?record.user_pk, ?latency_ms, "payment failed");
 
-                let balance_msat = db::user_balance(&db, send_record.user_pk.clone()).await;
+                let balance_msat = db::user_balance(&db, record.user_pk.clone()).await;
 
-                event_bus.send_balance_event(send_record.user_pk.clone(), balance_msat);
+                event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
 
-                event_bus.send_update_event(
-                    send_record.user_pk.clone(),
-                    send_record.id.clone(),
-                    "failed".to_string(),
-                );
+                event_bus.send_update_event(record.user_pk, record.id, "failed");
             }
             _ => {}
         }
