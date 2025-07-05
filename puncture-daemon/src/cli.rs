@@ -29,7 +29,14 @@ pub struct ApiError {
 }
 
 impl ApiError {
-    fn internal_server_error(error: impl Display) -> Self {
+    fn bad_request(error: impl Display) -> Self {
+        Self {
+            code: StatusCode::BAD_REQUEST,
+            error: error.to_string(),
+        }
+    }
+
+    fn internal(error: impl Display) -> Self {
         Self {
             code: StatusCode::INTERNAL_SERVER_ERROR,
             error: error.to_string(),
@@ -58,7 +65,7 @@ pub async fn ldk_onchain_receive(
         .node
         .onchain_payment()
         .new_address()
-        .map_err(ApiError::internal_server_error)?;
+        .map_err(ApiError::internal)?;
 
     info!(?address, "generated new onchain address");
 
@@ -80,7 +87,7 @@ pub async fn ldk_onchain_send(
             request.amount_sats,
             request.fee_rate,
         )
-        .map_err(ApiError::internal_server_error)?;
+        .map_err(ApiError::internal)?;
 
     info!(?request, "sent onchain payment");
 
@@ -130,7 +137,7 @@ pub async fn ldk_channel_open(
             request.push_to_counterparty_msat,
             None,
         )
-        .map_err(ApiError::internal_server_error)?;
+        .map_err(ApiError::internal)?;
 
     info!(?request, ?channel_id, "opened channel");
 
@@ -147,20 +154,20 @@ pub async fn ldk_channel_close(
     let channel_id = <[u8; 16]>::from_hex(&request.user_channel_id)
         .map(u128::from_be_bytes)
         .map(UserChannelId)
-        .map_err(|_| ApiError::internal_server_error("Invalid channel ID"))?;
+        .map_err(ApiError::bad_request)?;
 
     match request.force {
         true => {
             state
                 .node
                 .force_close_channel(&channel_id, request.counterparty_node_id, None)
-                .map_err(ApiError::internal_server_error)?;
+                .map_err(ApiError::internal)?;
         }
         false => {
             state
                 .node
                 .close_channel(&channel_id, request.counterparty_node_id)
-                .map_err(ApiError::internal_server_error)?;
+                .map_err(ApiError::internal)?;
         }
     }
 
@@ -208,7 +215,7 @@ pub async fn ldk_peer_connect(
     state
         .node
         .connect(request.node_id, request.address.into(), request.persist)
-        .map_err(ApiError::internal_server_error)?;
+        .map_err(ApiError::internal)?;
 
     info!(?request, "connected to peer");
 
@@ -223,7 +230,7 @@ pub async fn ldk_peer_disconnect(
     state
         .node
         .disconnect(request.counterparty_node_id)
-        .map_err(ApiError::internal_server_error)?;
+        .map_err(ApiError::internal)?;
 
     info!(?request, "disconnected from peer");
 
