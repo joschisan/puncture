@@ -1,8 +1,8 @@
 use std::net::SocketAddr;
 
+use bitcoin::Address;
 use bitcoin::address::NetworkUnchecked;
 use bitcoin::secp256k1::PublicKey;
-use bitcoin::{Address, FeeRate};
 use clap::Args;
 use serde::{Deserialize, Serialize};
 
@@ -56,18 +56,18 @@ pub struct OnchainSendRequest {
     pub address: Address<NetworkUnchecked>,
     /// Amount in satoshis
     pub amount_sats: u64,
-    /// Fee rate (optional)
+    /// The fee rate to use in satoshis per vbyte (optional)
     #[arg(long)]
-    pub fee_rate: Option<FeeRate>,
+    pub sats_per_vbyte: Option<u64>,
 }
 
 #[derive(Debug, Clone, Args, Serialize, Deserialize)]
 pub struct OnchainDrainRequest {
     /// The address to drain the funds to
     pub address: Address<NetworkUnchecked>,
-    /// The fee rate to use, in satoshis per byte
+    /// The fee rate to use in satoshis per vbyte (optional)
     #[arg(long)]
-    pub fee_rate: Option<FeeRate>,
+    pub sats_per_vbyte: Option<u64>,
 }
 
 #[derive(Debug, Clone, Args, Serialize, Deserialize)]

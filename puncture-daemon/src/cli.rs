@@ -7,8 +7,8 @@ use axum::{
     response::IntoResponse,
     routing::post,
 };
-use bitcoin::Txid;
 use bitcoin::hex::{DisplayHex, FromHex};
+use bitcoin::{FeeRate, Txid};
 use ldk_node::UserChannelId;
 use rand::Rng;
 use serde_json::Value;
@@ -86,7 +86,9 @@ pub async fn ldk_onchain_send(
         .send_to_address(
             &request.address.clone().assume_checked(),
             request.amount_sats,
-            request.fee_rate,
+            request
+                .sats_per_vbyte
+                .map(FeeRate::from_sat_per_vb_unchecked),
         )
         .map(Json)
         .map_err(ApiError::internal)
@@ -107,7 +109,9 @@ pub async fn ldk_onchain_drain(
         .send_all_to_address(
             &request.address.clone().assume_checked(),
             false,
-            request.fee_rate,
+            request
+                .sats_per_vbyte
+                .map(FeeRate::from_sat_per_vb_unchecked),
         )
         .map(Json)
         .map_err(ApiError::internal)
