@@ -34,7 +34,7 @@ pub struct OpenChannelRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenChannelResponse {
-    /// The channel ID as a string
+    /// The channel ID in hex encoding
     pub channel_id: String,
 }
 
@@ -63,8 +63,8 @@ pub struct OnchainSendRequest {
 
 #[derive(Debug, Clone, Args, Serialize, Deserialize)]
 pub struct CloseChannelRequest {
-    /// User channel ID (u128)
-    pub user_channel_id: u128,
+    /// User channel ID in hex encoding
+    pub user_channel_id: String,
     /// Counterparty node public key
     pub counterparty_node_id: PublicKey,
     /// Force close the channel
@@ -74,20 +74,31 @@ pub struct CloseChannelRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelInfo {
-    pub user_channel_id: u128,
+    /// User channel ID in hex encoding
+    pub user_channel_id: String,
+    /// Counterparty node public key
     pub counterparty_node_id: PublicKey,
+    /// Channel value in satoshis
     pub channel_value_sats: u64,
-    pub outbound_capacity_msat: u64,
-    pub inbound_capacity_msat: u64,
-    pub is_channel_ready: bool,
-    pub is_usable: bool,
+    /// Whether the channel is outbound
     pub is_outbound: bool,
+    /// Outbound capacity in millisatoshis
+    pub outbound_capacity_msat: u64,
+    /// Inbound capacity in millisatoshis
+    pub inbound_capacity_msat: u64,
+    /// Whether the channel is ready
+    pub is_channel_ready: bool,
+    /// Whether the channel is usable
+    pub is_usable: bool,
+    /// Number of confirmations
     pub confirmations: Option<u32>,
+    /// Number of confirmations required to be usable
     pub confirmations_required: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListChannelsResponse {
+    /// List of channel information
     pub channels: Vec<ChannelInfo>,
 }
 
@@ -124,18 +135,23 @@ pub struct PeerInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListPeersResponse {
+    /// List of peer information
     pub peers: Vec<PeerInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
+    /// The user's public key
     pub user_pk: String,
+    /// The user's balance in millisatoshis
     pub balance_msat: u64,
+    /// Timestamp in milliseconds since the Unix epoch
     pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListUsersResponse {
+    /// List of user information
     pub users: Vec<UserInfo>,
 }
 
@@ -151,5 +167,6 @@ pub struct InviteRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InviteResponse {
+    /// The invite in hex encoding
     pub invite: String,
 }

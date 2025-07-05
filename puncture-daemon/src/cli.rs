@@ -7,6 +7,7 @@ use axum::{
     response::IntoResponse,
     routing::post,
 };
+use bitcoin::hex::{DisplayHex, FromHex};
 use ldk_node::UserChannelId;
 use rand::Rng;
 use serde_json::Value;
@@ -143,24 +144,22 @@ pub async fn ldk_channel_close(
     State(state): State<AppState>,
     Json(request): Json<CloseChannelRequest>,
 ) -> Result<Json<()>, ApiError> {
+    let channel_id = <[u8; 16]>::from_hex(&request.user_channel_id)
+        .map(u128::from_be_bytes)
+        .map(UserChannelId)
+        .map_err(|_| ApiError::internal_server_error("Invalid channel ID"))?;
+
     match request.force {
         true => {
             state
                 .node
-                .force_close_channel(
-                    &UserChannelId(request.user_channel_id),
-                    request.counterparty_node_id,
-                    None,
-                )
+                .force_close_channel(&channel_id, request.counterparty_node_id, None)
                 .map_err(ApiError::internal_server_error)?;
         }
         false => {
             state
                 .node
-                .close_channel(
-                    &UserChannelId(request.user_channel_id),
-                    request.counterparty_node_id,
-                )
+                .close_channel(&channel_id, request.counterparty_node_id)
                 .map_err(ApiError::internal_server_error)?;
         }
     }
@@ -179,7 +178,7 @@ pub async fn ldk_channel_list(
         .list_channels()
         .into_iter()
         .map(|channel| ChannelInfo {
-            user_channel_id: channel.user_channel_id.0,
+            user_channel_id: channel.user_channel_id.0.to_be_bytes().as_hex().to_string(),
             counterparty_node_id: channel.counterparty_node_id,
             channel_value_sats: channel.channel_value_sats,
             outbound_capacity_msat: channel.outbound_capacity_msat,
