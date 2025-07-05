@@ -62,6 +62,15 @@ pub struct OnchainSendRequest {
 }
 
 #[derive(Debug, Clone, Args, Serialize, Deserialize)]
+pub struct OnchainDrainRequest {
+    /// The address to drain the funds to
+    pub address: Address<NetworkUnchecked>,
+    /// The fee rate to use, in satoshis per byte
+    #[arg(long)]
+    pub fee_rate: Option<FeeRate>,
+}
+
+#[derive(Debug, Clone, Args, Serialize, Deserialize)]
 pub struct CloseChannelRequest {
     /// User channel ID in hex encoding
     pub user_channel_id: String,

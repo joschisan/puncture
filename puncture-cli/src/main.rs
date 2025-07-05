@@ -6,7 +6,7 @@ use url::Url;
 
 use puncture_cli_core::{
     CloseChannelRequest, ConnectPeerRequest, DisconnectPeerRequest, InviteRequest,
-    OnchainSendRequest, OpenChannelRequest,
+    OnchainDrainRequest, OnchainSendRequest, OpenChannelRequest,
 };
 
 #[derive(Parser, Debug)]
@@ -67,6 +67,8 @@ enum AdminOnchainCommands {
     Receive,
     /// Send Bitcoin to an address
     Send(OnchainSendRequest),
+    /// Drain all onchain funds to an address
+    Drain(OnchainDrainRequest),
 }
 
 #[derive(Subcommand, Debug)]
@@ -102,6 +104,7 @@ fn main() -> Result<()> {
             AdminLdkCommands::Onchain { command } => match command {
                 AdminOnchainCommands::Receive => request("ldk/onchain/receive", ()),
                 AdminOnchainCommands::Send(req) => request("ldk/onchain/send", req),
+                AdminOnchainCommands::Drain(req) => request("ldk/onchain/drain", req),
             },
             AdminLdkCommands::Channel { command } => match command {
                 AdminChannelCommands::Open(req) => request("ldk/channel/open", req),

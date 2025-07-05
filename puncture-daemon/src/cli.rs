@@ -7,6 +7,7 @@ use axum::{
     response::IntoResponse,
     routing::post,
 };
+use bitcoin::Txid;
 use bitcoin::hex::{DisplayHex, FromHex};
 use ldk_node::UserChannelId;
 use rand::Rng;
@@ -16,8 +17,8 @@ use tracing::info;
 use puncture_cli_core::{
     BalancesResponse, ChannelInfo, CloseChannelRequest, ConnectPeerRequest, DisconnectPeerRequest,
     InviteRequest, InviteResponse, ListChannelsResponse, ListPeersResponse, ListUsersResponse,
-    NewAddressResponse, NodeIdResponse, OnchainSendRequest, OpenChannelRequest,
-    OpenChannelResponse, PeerInfo,
+    NewAddressResponse, NodeIdResponse, OnchainDrainRequest, OnchainSendRequest,
+    OpenChannelRequest, OpenChannelResponse, PeerInfo,
 };
 use puncture_core::invite::Invite;
 
@@ -78,7 +79,7 @@ pub async fn ldk_onchain_receive(
 pub async fn ldk_onchain_send(
     State(state): State<AppState>,
     Json(request): Json<OnchainSendRequest>,
-) -> Result<Json<()>, ApiError> {
+) -> Result<Json<Txid>, ApiError> {
     state
         .node
         .onchain_payment()
@@ -87,11 +88,29 @@ pub async fn ldk_onchain_send(
             request.amount_sats,
             request.fee_rate,
         )
-        .map_err(ApiError::internal)?;
+        .map(Json)
+        .map_err(ApiError::internal)
+}
 
-    info!(?request, "sent onchain payment");
+#[axum::debug_handler]
+pub async fn ldk_onchain_drain(
+    State(state): State<AppState>,
+    Json(request): Json<OnchainDrainRequest>,
+) -> Result<Json<Txid>, ApiError> {
+    if !state.node.list_channels().is_empty() {
+        return Err(ApiError::bad_request("You still have channels open"));
+    }
 
-    Ok(Json(()))
+    state
+        .node
+        .onchain_payment()
+        .send_all_to_address(
+            &request.address.clone().assume_checked(),
+            false,
+            request.fee_rate,
+        )
+        .map(Json)
+        .map_err(ApiError::internal)
 }
 
 #[axum::debug_handler]
@@ -280,7 +299,8 @@ pub async fn invite(
 pub fn router() -> Router<AppState> {
     let onchain_router = Router::new()
         .route("/receive", post(ldk_onchain_receive))
-        .route("/send", post(ldk_onchain_send));
+        .route("/send", post(ldk_onchain_send))
+        .route("/drain", post(ldk_onchain_drain));
 
     let channel_router = Router::new()
         .route("/open", post(ldk_channel_open))
