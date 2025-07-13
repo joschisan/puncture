@@ -3,6 +3,7 @@ mod client;
 mod convert;
 mod db;
 mod events;
+mod ui;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -83,6 +84,10 @@ struct Args {
     /// The port for the Puncture CLI to connect to.
     #[arg(long, env = "CLI_PORT", default_value = "9090")]
     cli_port: u16,
+
+    /// The port for the Puncture UI to be served on.
+    #[arg(long, env = "UI_PORT", default_value = "9000")]
+    ui_port: u16,
 
     /// Minimum amount in satoshis enforced across all incoming and outgoing payments.
     #[arg(long, env = "MIN_AMOUNT_SATS", default_value = "1")]
@@ -219,7 +224,9 @@ fn main() -> Result<()> {
         ct.clone(),
     ));
 
-    let cli_task = runtime.spawn(cli::run_api(app_state.clone(), ct.clone()));
+    let cli_task = runtime.spawn(cli::run_cli(app_state.clone(), ct.clone()));
+
+    let ui_task = runtime.spawn(ui::run_ui(app_state.clone(), ct.clone()));
 
     let events_task = runtime.spawn(process_ldk_events(
         node.clone(),
@@ -244,6 +251,10 @@ fn main() -> Result<()> {
 
     if let Err(e) = runtime.block_on(events_task) {
         warn!(?e, "Failed to join LDK events task");
+    }
+
+    if let Err(e) = runtime.block_on(ui_task) {
+        warn!(?e, "Failed to join UI task");
     }
 
     info!("Graceful shutdown complete");

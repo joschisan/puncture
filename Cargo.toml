@@ -33,6 +33,7 @@ lightning = "0.1.4"
 lightning-invoice = { version = "0.33.1", features = ["serde"] }
 lightning-types = "0.2.0"
 lnurl-pay = "0.6.0"
+maud = "0.27.0"
 postcard = { version = "1.0.11", features = ["alloc"] }
 puncture-cli = { path = "puncture-cli" }
 puncture-cli-core = { path = "puncture-cli-core" }

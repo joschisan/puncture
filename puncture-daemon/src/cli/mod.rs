@@ -16,15 +16,15 @@ use puncture_cli_core::{
 
 use crate::AppState;
 
-pub async fn run_api(app_state: AppState, ct: CancellationToken) {
+pub async fn run_cli(app_state: AppState, ct: CancellationToken) {
     let listener = TcpListener::bind(format!("127.0.0.1:{}", app_state.args.cli_port))
         .await
-        .expect("Failed to bind to API address");
+        .expect("Failed to bind CLI server");
 
     axum::serve(listener, router().with_state(app_state))
         .with_graceful_shutdown(ct.cancelled_owned())
         .await
-        .expect("Failed to start HTTP server");
+        .expect("Failed to start CLI server");
 }
 
 pub struct CliError {
