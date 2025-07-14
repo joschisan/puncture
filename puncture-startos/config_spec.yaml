@@ -1,0 +1,6 @@
+daemon-name:
+  type: string
+  name: Daemon Name
+  description: Name displayed to users in the app
+  nullable: false
+  default: "My Puncture Daemon" 

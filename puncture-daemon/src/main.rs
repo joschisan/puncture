@@ -166,7 +166,7 @@ fn main() -> Result<()> {
                 bitcoind_url.username().to_string(),
                 bitcoind_url
                     .password()
-                    .context("Invalid bitcoind RPC URL: missing password")?
+                    .unwrap_or_default()
                     .to_string(),
             );
         }
