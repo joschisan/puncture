@@ -67,6 +67,7 @@ pub fn open_channel(node_id_b: PublicKey, ldk_port_b: u16) -> Result<String> {
 
 pub fn invite() -> Result<InviteResponse> {
     Command::new("target/debug/puncture-cli")
+        .arg("user")
         .arg("invite")
         .run_puncture_cli::<InviteResponse>()
 }

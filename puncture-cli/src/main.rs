@@ -5,10 +5,11 @@ use serde_json::Value;
 
 use puncture_cli_core::{
     CloseChannelRequest, ConnectPeerRequest, DisconnectPeerRequest, InviteRequest,
-    OnchainDrainRequest, OnchainSendRequest, OpenChannelRequest, ROUTE_INVITE, ROUTE_LDK_BALANCES,
+    OnchainDrainRequest, OnchainSendRequest, OpenChannelRequest, ROUTE_LDK_BALANCES,
     ROUTE_LDK_CHANNEL_CLOSE, ROUTE_LDK_CHANNEL_LIST, ROUTE_LDK_CHANNEL_OPEN, ROUTE_LDK_NODE_ID,
     ROUTE_LDK_ONCHAIN_DRAIN, ROUTE_LDK_ONCHAIN_RECEIVE, ROUTE_LDK_ONCHAIN_SEND,
-    ROUTE_LDK_PEER_CONNECT, ROUTE_LDK_PEER_DISCONNECT, ROUTE_LDK_PEER_LIST, ROUTE_USER_LIST,
+    ROUTE_LDK_PEER_CONNECT, ROUTE_LDK_PEER_DISCONNECT, ROUTE_LDK_PEER_LIST, ROUTE_USER_INVITE,
+    ROUTE_USER_LIST,
 };
 
 #[derive(Parser, Debug)]
@@ -24,8 +25,6 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum AdminCommands {
-    /// Generate an invite code
-    Invite(InviteRequest),
     /// LDK node management commands
     Ldk {
         #[command(subcommand)]
@@ -93,6 +92,8 @@ enum AdminPeerCommands {
 
 #[derive(Subcommand, Debug)]
 enum AdminUserCommands {
+    /// Generate an invite code
+    Invite(InviteRequest),
     /// List all users
     List,
 }
@@ -101,7 +102,6 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        AdminCommands::Invite(req) => request(cli.cli_port, ROUTE_INVITE, req),
         AdminCommands::Ldk { command } => match command {
             AdminLdkCommands::NodeId => request(cli.cli_port, ROUTE_LDK_NODE_ID, ()),
             AdminLdkCommands::Balances => request(cli.cli_port, ROUTE_LDK_BALANCES, ()),
@@ -136,6 +136,7 @@ fn main() -> Result<()> {
             },
         },
         AdminCommands::User { command } => match command {
+            AdminUserCommands::Invite(req) => request(cli.cli_port, ROUTE_USER_INVITE, req),
             AdminUserCommands::List => request(cli.cli_port, ROUTE_USER_LIST, ()),
         },
     }

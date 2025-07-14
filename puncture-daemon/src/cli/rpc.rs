@@ -21,26 +21,6 @@ use crate::AppState;
 
 use super::{CliError, db};
 
-#[tracing::instrument(skip(state))]
-pub async fn invite(
-    State(state): State<AppState>,
-    Json(request): Json<InviteRequest>,
-) -> Result<Json<InviteResponse>, CliError> {
-    let invite_id = rand::rng().random();
-
-    db::create_invite(
-        &state.db,
-        &invite_id,
-        request.user_limit,
-        request.expiry_days * 60 * 60 * 24,
-    )
-    .await;
-
-    Ok(Json(InviteResponse {
-        invite: Invite::new(invite_id, state.node_id).encode(),
-    }))
-}
-
 #[axum::debug_handler]
 pub async fn ldk_node_id(State(state): State<AppState>) -> Json<NodeIdResponse> {
     Json(NodeIdResponse {
@@ -277,6 +257,26 @@ pub async fn ldk_peer_list(
         .collect();
 
     Ok(Json(ListPeersResponse { peers }))
+}
+
+#[tracing::instrument(skip(state))]
+pub async fn user_invite(
+    State(state): State<AppState>,
+    Json(request): Json<InviteRequest>,
+) -> Result<Json<InviteResponse>, CliError> {
+    let invite_id = rand::rng().random();
+
+    db::create_invite(
+        &state.db,
+        &invite_id,
+        request.user_limit,
+        request.expiry_days * 60 * 60 * 24,
+    )
+    .await;
+
+    Ok(Json(InviteResponse {
+        invite: Invite::new(invite_id, state.node_id).encode(),
+    }))
 }
 
 pub async fn user_list(State(state): State<AppState>) -> Result<Json<ListUsersResponse>, CliError> {

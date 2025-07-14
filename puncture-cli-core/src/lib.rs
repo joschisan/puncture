@@ -4,7 +4,6 @@ use bitcoin::{Address, OutPoint};
 use clap::Args;
 use serde::{Deserialize, Serialize};
 
-pub const ROUTE_INVITE: &str = "/invite";
 pub const ROUTE_LDK_NODE_ID: &str = "/ldk/node-id";
 pub const ROUTE_LDK_BALANCES: &str = "/ldk/balances";
 pub const ROUTE_LDK_ONCHAIN_RECEIVE: &str = "/ldk/onchain/receive";
@@ -16,23 +15,8 @@ pub const ROUTE_LDK_CHANNEL_LIST: &str = "/ldk/channel/list";
 pub const ROUTE_LDK_PEER_CONNECT: &str = "/ldk/peer/connect";
 pub const ROUTE_LDK_PEER_DISCONNECT: &str = "/ldk/peer/disconnect";
 pub const ROUTE_LDK_PEER_LIST: &str = "/ldk/peer/list";
+pub const ROUTE_USER_INVITE: &str = "/user/invite";
 pub const ROUTE_USER_LIST: &str = "/user/list";
-
-#[derive(Debug, Clone, Args, Serialize, Deserialize)]
-pub struct InviteRequest {
-    /// Expiry time in days
-    #[arg(long, default_value = "1")]
-    pub expiry_days: u32,
-    /// Maximum number of users that can register with this invite
-    #[arg(long, default_value = "10")]
-    pub user_limit: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InviteResponse {
-    /// The invite in hex encoding
-    pub invite: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeIdResponse {
@@ -171,6 +155,22 @@ pub struct PeerInfo {
 pub struct ListPeersResponse {
     /// List of peer information
     pub peers: Vec<PeerInfo>,
+}
+
+#[derive(Debug, Clone, Args, Serialize, Deserialize)]
+pub struct InviteRequest {
+    /// Expiry time in days
+    #[arg(long, default_value = "1")]
+    pub expiry_days: u32,
+    /// Maximum number of users that can register with this invite
+    #[arg(long, default_value = "10")]
+    pub user_limit: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InviteResponse {
+    /// The invite in hex encoding
+    pub invite: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

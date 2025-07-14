@@ -48,13 +48,13 @@ docker exec puncture-daemon puncture-cli --help
 Users need an invite code to connect to your daemon. Each invite code has an expiration time and a limit for the number of users that may register with it. You can create an invite code with defaults via:
 
 ```bash
-puncture-cli invite
+puncture-cli user invite
 ```
 
 or set custom a custom expiration and user limit with
 
 ```bash
-puncture-cli invite --expiry-days 1 --user-limit 10
+puncture-cli user invite --expiry-days 1 --user-limit 10
 ```
 
 ### Inbound Liquidity Setup
@@ -143,7 +143,7 @@ The admin cli network interface is **hardcoded to `127.0.0.1:9090`** in both the
 Generate invite code (expires in 1 day, for a maximum of 10 users):
 
 ```bash
-puncture-cli invite --expiry-days 1 --user-limit 10
+puncture-cli user invite --expiry-days 1 --user-limit 10
 ```
 
 Get your node ID (share this with LSPs for inbound channels):

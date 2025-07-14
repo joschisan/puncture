@@ -8,9 +8,9 @@ use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 
 use puncture_cli_core::{
-    ROUTE_INVITE, ROUTE_LDK_BALANCES, ROUTE_LDK_CHANNEL_CLOSE, ROUTE_LDK_CHANNEL_LIST,
-    ROUTE_LDK_CHANNEL_OPEN, ROUTE_LDK_NODE_ID, ROUTE_LDK_ONCHAIN_DRAIN, ROUTE_LDK_ONCHAIN_RECEIVE,
-    ROUTE_LDK_ONCHAIN_SEND, ROUTE_LDK_PEER_CONNECT, ROUTE_LDK_PEER_DISCONNECT, ROUTE_LDK_PEER_LIST,
+    ROUTE_LDK_BALANCES, ROUTE_LDK_CHANNEL_CLOSE, ROUTE_LDK_CHANNEL_LIST, ROUTE_LDK_CHANNEL_OPEN,
+    ROUTE_LDK_NODE_ID, ROUTE_LDK_ONCHAIN_DRAIN, ROUTE_LDK_ONCHAIN_RECEIVE, ROUTE_LDK_ONCHAIN_SEND,
+    ROUTE_LDK_PEER_CONNECT, ROUTE_LDK_PEER_DISCONNECT, ROUTE_LDK_PEER_LIST, ROUTE_USER_INVITE,
     ROUTE_USER_LIST,
 };
 
@@ -56,7 +56,6 @@ impl IntoResponse for CliError {
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route(ROUTE_INVITE, post(rpc::invite))
         .route(ROUTE_LDK_NODE_ID, post(rpc::ldk_node_id))
         .route(ROUTE_LDK_BALANCES, post(rpc::ldk_balances))
         .route(ROUTE_LDK_ONCHAIN_RECEIVE, post(rpc::ldk_onchain_receive))
@@ -68,5 +67,6 @@ pub fn router() -> Router<AppState> {
         .route(ROUTE_LDK_PEER_CONNECT, post(rpc::ldk_peer_connect))
         .route(ROUTE_LDK_PEER_DISCONNECT, post(rpc::ldk_peer_disconnect))
         .route(ROUTE_LDK_PEER_LIST, post(rpc::ldk_peer_list))
+        .route(ROUTE_USER_INVITE, post(rpc::user_invite))
         .route(ROUTE_USER_LIST, post(rpc::user_list))
 }
