@@ -73,21 +73,21 @@ struct Args {
     #[arg(long, env = "INVOICE_EXPIRY_SECS", default_value = "3600")]
     invoice_expiry_secs: u32,
 
-    /// Network address and port for the HTTP API server to bind to.
-    #[arg(long, env = "API_BIND", default_value = "0.0.0.0:8080")]
-    api_bind: SocketAddr,
+    /// Network address and port for the client interface to be served on.
+    #[arg(long, env = "CLIENT_BIND", default_value = "0.0.0.0:8080")]
+    client_bind: SocketAddr,
 
-    /// Network address and port for the Lightning node to listen for peer connections.
+    /// Network address and port for the lightning p2p interface to be served on.
     #[arg(long, env = "LDK_BIND", default_value = "0.0.0.0:9735")]
     ldk_bind: SocketAddr,
 
-    /// The port for the Puncture CLI to connect to.
-    #[arg(long, env = "CLI_PORT", default_value = "9090")]
-    cli_port: u16,
+    /// Network address and port for the CLI interface to be served on. Never expose this to the public.
+    #[arg(long, env = "CLI_BIND", default_value = "0.0.0.0:9090")]
+    cli_bind: SocketAddr,
 
-    /// The port for the Puncture UI to be served on.
-    #[arg(long, env = "UI_PORT", default_value = "9000")]
-    ui_port: u16,
+    /// Network address and port for the UI interface to be served on. Never expose this to the public.
+    #[arg(long, env = "UI_BIND", default_value = "0.0.0.0:9000")]
+    ui_bind: SocketAddr,
 
     /// Minimum amount in satoshis enforced across all incoming and outgoing payments.
     #[arg(long, env = "MIN_AMOUNT_SATS", default_value = "1")]
@@ -198,7 +198,7 @@ fn main() -> Result<()> {
         .discovery_n0()
         .alpns(vec![b"puncture-api".to_vec()]);
 
-    let builder = match args.api_bind {
+    let builder = match args.client_bind {
         SocketAddr::V4(addr_v4) => builder.bind_addr_v4(addr_v4),
         SocketAddr::V6(addr_v6) => builder.bind_addr_v6(addr_v6),
     };

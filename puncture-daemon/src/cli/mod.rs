@@ -17,7 +17,7 @@ use puncture_cli_core::{
 use crate::AppState;
 
 pub async fn run_cli(app_state: AppState, ct: CancellationToken) {
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", app_state.args.cli_port))
+    let listener = TcpListener::bind(app_state.args.cli_bind)
         .await
         .expect("Failed to bind CLI server");
 

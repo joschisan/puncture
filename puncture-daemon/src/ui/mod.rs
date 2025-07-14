@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 use crate::AppState;
 
 pub async fn run_ui(app_state: AppState, ct: CancellationToken) {
-    let listener = TcpListener::bind(format!("127.0.0.1:{}", app_state.args.ui_port))
+    let listener = TcpListener::bind(app_state.args.ui_bind)
         .await
         .expect("Failed to bind UI server");
 

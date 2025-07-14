@@ -4,8 +4,14 @@ services:
     container_name: puncture-daemon
     restart: unless-stopped
     ports:
-      - "8080:8080"
-      - "9735:9735"
+      # Client Interface (safe to expose publicly)
+      - "8080:8080"            
+      # Lightning P2P Interface (safe to expose publicly)
+      - "9735:9735"           
+      # Admin CLI Interface (uncomment for local access only)
+      # - "127.0.0.1:9090:9090"  
+      # Admin UI Interface (uncomment for local access only)
+      # - "127.0.0.1:9000:9000"  
     volumes:
       - puncture_data:/data/puncture
       - ldk_data:/data/ldk

@@ -99,11 +99,12 @@ puncture-cli ldk channel open --node-id [LSP_NODE_ID] --address [LSP_ADDRESS] --
 
 The daemon listens on network interfaces:
 
-- **0.0.0.0:8080**: Public Iroh API for user operations (exposed)
-- **0.0.0.0:9735**: Lightning P2P network (exposed)  
-- **127.0.0.1:9090**: Admin cli http service (localhost only, **never publicly exposed**)
+- **0.0.0.0:8080**: Client Interface for user operations (configurable via `CLIENT_BIND`)
+- **0.0.0.0:9735**: Lightning P2P network (configurable via `LDK_BIND`)  
+- **0.0.0.0:9090**: Admin CLI HTTP service (configurable via `CLI_BIND`, **never expose publicly**)
+- **0.0.0.0:9000**: Admin UI dashboard (configurable via `UI_BIND`, **never expose publicly**)
 
-The admin cli network interface is **hardcoded to `127.0.0.1:9090`** in both the daemon and CLI for security. This ensures the admin interface can never be accidentally exposed to the internet, even with misconfigurations.
+⚠️ **Security Warning**: The admin CLI and UI interfaces default to `0.0.0.0` for container compatibility, but should **NEVER** be exposed to the public internet. Always use `127.0.0.1` bindings in production as we do in our reference docker-compose.yml.
 
 ## Daemon Configuration Reference
 
@@ -128,23 +129,19 @@ The admin cli network interface is **hardcoded to `127.0.0.1:9090`** in both the
 | `FEE_PPM` | 10000 | Fee rate in parts per million (PPM) applied to outgoing Lightning payments |
 | `BASE_FEE_MSAT` | 50000 | Fixed base fee in millisatoshis added to all outgoing Lightning payments |
 | `INVOICE_EXPIRY_SECS` | 3600 | Expiration time in seconds for all generated Lightning invoices |
-| `API_BIND` | 0.0.0.0:8080 | Network address and port for the Iroh API endpoint to bind to |
+| `CLIENT_BIND` | 0.0.0.0:8080 | Network address and port for the client interface to bind to |
 | `LDK_BIND` | 0.0.0.0:9735 | Network address and port for the Lightning node to listen for peer connections |
+| `CLI_BIND` | 0.0.0.0:9090 | Network address and port for the CLI interface (**never expose publicly**) |
+| `UI_BIND` | 0.0.0.0:9000 | Network address and port for the UI interface (**never expose publicly**) |
 | `MIN_AMOUNT_SATS` | 1 | Minimum amount in satoshis enforced across all incoming and outgoing payments |
 | `MAX_AMOUNT_SATS` | 100000 | Maximum amount in satoshis enforced across all incoming and outgoing payments |
 | `MAX_PENDING_PAYMENTS_PER_USER` | 10 | Maximum number of pending invoices and outgoing payments each user can have simultaneously |
 
-*Note: The admin cli interface always binds to `127.0.0.1:9090` and is not configurable for security reasons.*
+⚠️ **Security Note**: Admin interfaces (`CLI_BIND` and `UI_BIND`) default to `0.0.0.0` for Docker compatibility but must never be exposed to the public internet. Always use `127.0.0.1` bindings for production deployments as we do in our reference docker-compose.yml.
 
 ## Admin CLI Command Reference
 
-**All commands must be run inside the container or via docker exec. The CLI connects to the hardcoded admin interface at `127.0.0.1:9090`.**
-
 Generate invite code (expires in 1 day, for a maximum of 10 users):
-
-```bash
-puncture-cli user invite --expiry-days 1 --user-limit 10
-```
 
 Get your node ID (share this with LSPs for inbound channels):
 
@@ -204,6 +201,10 @@ List connected peers:
 
 ```bash
 puncture-cli ldk peer list
+```
+
+```bash
+puncture-cli user invite --expiry-days 1 --user-limit 10
 ```
 
 List registered users:

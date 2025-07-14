@@ -419,7 +419,7 @@ pub fn start_daemon(api_port: u16, ldk_port: u16) -> Result<Child> {
         .arg("http://bitcoin:bitcoin@127.0.0.1:18443")
         .arg("--daemon-name")
         .arg("testing daemon")
-        .arg("--api-bind")
+        .arg("--client-bind")
         .arg(format!("127.0.0.1:{}", api_port))
         .arg("--ldk-bind")
         .arg(format!("127.0.0.1:{}", ldk_port))
