@@ -8,16 +8,16 @@ use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 
 use puncture_cli_core::{
-    CLI_BIND_ADDR, ROUTE_INVITE, ROUTE_LDK_BALANCES, ROUTE_LDK_CHANNEL_CLOSE,
-    ROUTE_LDK_CHANNEL_LIST, ROUTE_LDK_CHANNEL_OPEN, ROUTE_LDK_NODE_ID, ROUTE_LDK_ONCHAIN_DRAIN,
-    ROUTE_LDK_ONCHAIN_RECEIVE, ROUTE_LDK_ONCHAIN_SEND, ROUTE_LDK_PEER_CONNECT,
-    ROUTE_LDK_PEER_DISCONNECT, ROUTE_LDK_PEER_LIST, ROUTE_USER_LIST,
+    ROUTE_INVITE, ROUTE_LDK_BALANCES, ROUTE_LDK_CHANNEL_CLOSE, ROUTE_LDK_CHANNEL_LIST,
+    ROUTE_LDK_CHANNEL_OPEN, ROUTE_LDK_NODE_ID, ROUTE_LDK_ONCHAIN_DRAIN, ROUTE_LDK_ONCHAIN_RECEIVE,
+    ROUTE_LDK_ONCHAIN_SEND, ROUTE_LDK_PEER_CONNECT, ROUTE_LDK_PEER_DISCONNECT, ROUTE_LDK_PEER_LIST,
+    ROUTE_USER_LIST,
 };
 
 use crate::AppState;
 
 pub async fn run_api(app_state: AppState, ct: CancellationToken) {
-    let listener = TcpListener::bind(CLI_BIND_ADDR)
+    let listener = TcpListener::bind(format!("127.0.0.1:{}", app_state.args.cli_port))
         .await
         .expect("Failed to bind to API address");
 

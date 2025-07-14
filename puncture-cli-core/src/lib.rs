@@ -4,8 +4,6 @@ use bitcoin::{Address, OutPoint};
 use clap::Args;
 use serde::{Deserialize, Serialize};
 
-pub const CLI_BIND_ADDR: &str = "127.0.0.1:9090";
-
 pub const ROUTE_INVITE: &str = "/invite";
 pub const ROUTE_LDK_NODE_ID: &str = "/ldk/node-id";
 pub const ROUTE_LDK_BALANCES: &str = "/ldk/balances";

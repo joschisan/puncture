@@ -80,6 +80,10 @@ struct Args {
     #[arg(long, env = "LDK_BIND", default_value = "0.0.0.0:9735")]
     ldk_bind: SocketAddr,
 
+    /// The port for the Puncture CLI to connect to.
+    #[arg(long, env = "CLI_PORT", default_value = "9090")]
+    cli_port: u16,
+
     /// Minimum amount in satoshis enforced across all incoming and outgoing payments.
     #[arg(long, env = "MIN_AMOUNT_SATS", default_value = "1")]
     min_amount_sats: u32,
