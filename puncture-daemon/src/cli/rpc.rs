@@ -99,11 +99,16 @@ pub async fn ldk_onchain_send(
     State(state): State<AppState>,
     Json(request): Json<OnchainSendRequest>,
 ) -> Result<Json<Txid>, CliError> {
+    let address = request
+        .address
+        .require_network(state.args.bitcoin_network)
+        .map_err(|_| CliError::bad_request("Address is for a different network"))?;
+
     state
         .node
         .onchain_payment()
         .send_to_address(
-            &request.address.clone().assume_checked(),
+            &address,
             request.amount_sats,
             request
                 .sats_per_vbyte
@@ -122,11 +127,16 @@ pub async fn ldk_onchain_drain(
         return Err(CliError::bad_request("You still have channels open"));
     }
 
+    let address = request
+        .address
+        .require_network(state.args.bitcoin_network)
+        .map_err(|_| CliError::bad_request("Address is for a different network"))?;
+
     state
         .node
         .onchain_payment()
         .send_all_to_address(
-            &request.address.clone().assume_checked(),
+            &address,
             false,
             request
                 .sats_per_vbyte

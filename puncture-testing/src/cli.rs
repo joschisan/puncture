@@ -1,8 +1,8 @@
 use std::process::Command;
 
 use anyhow::{Context, Result, ensure};
-use bitcoin::Address;
 use bitcoin::secp256k1::PublicKey;
+use bitcoin::{Address, Network};
 use serde::de::DeserializeOwned;
 
 use puncture_cli_core::{
@@ -36,7 +36,12 @@ pub fn onchain_receive() -> Result<Address> {
         .arg("onchain")
         .arg("receive")
         .run_puncture_cli::<OnchainReceiveResponse>()
-        .map(|response| response.address.assume_checked())
+        .map(|response| {
+            response
+                .address
+                .require_network(Network::Regtest)
+                .expect("Address should be valid for regtest network")
+        })
 }
 
 pub fn balances() -> Result<BalancesResponse> {

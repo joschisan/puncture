@@ -444,7 +444,8 @@ fn dummy_address() -> Address {
     "bcrt1qsurq86f2kdlce0tflgznehpzx275d93wvvxsml"
         .parse::<Address<NetworkUnchecked>>()
         .unwrap()
-        .assume_checked()
+        .require_network(Network::Regtest)
+        .expect("Dummy address should be valid for regtest network")
 }
 
 fn fund_daemon(rpc: &Client) -> Result<()> {
