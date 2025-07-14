@@ -34,6 +34,4 @@ COPY --from=builder /app/target/release/puncture-cli /usr/local/bin/puncture-cli
 
 USER puncture
 
-EXPOSE 8080 9735
-
 ENTRYPOINT ["puncture-daemon"]
