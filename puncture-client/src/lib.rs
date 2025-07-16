@@ -53,7 +53,7 @@ impl PunctureClient {
         Self { endpoint, db }
     }
 
-    pub async fn add_daemon(&self, invite: String) -> Result<PunctureConnection, String> {
+    pub async fn register(&self, invite: String) -> Result<PunctureConnection, String> {
         let invite = invite::Invite::decode(&invite).map_err(|_| "Invalid invite".to_string())?;
 
         let connection = self

@@ -131,8 +131,8 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: String) -> Result<()> {
     let client_a = PunctureClient::new("./data-dir-testing/client-a".to_string()).await;
     let client_b = PunctureClient::new("./data-dir-testing/client-b".to_string()).await;
 
-    let connection_a = client_a.add_daemon(invite.clone()).await.unwrap();
-    let connection_b = client_b.add_daemon(invite.clone()).await.unwrap();
+    let connection_a = client_a.register(invite.clone()).await.unwrap();
+    let connection_b = client_b.register(invite.clone()).await.unwrap();
 
     assert_eq!(
         connection_a.next_event().await,
