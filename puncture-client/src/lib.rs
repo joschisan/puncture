@@ -72,7 +72,7 @@ impl PunctureClient {
         .await
         .map_err(|_| "Failed to register".to_string())??;
 
-        db::save_daemon(&self.db, invite.node_id().to_string(), response).await;
+        db::save_daemon(&self.db, invite.node_id(), response).await;
 
         Ok(PunctureConnection::new(
             self.endpoint.clone(),
@@ -80,8 +80,8 @@ impl PunctureClient {
         ))
     }
 
-    pub async fn get_daemons(&self) -> Vec<Daemon> {
-        db::get_daemons(&self.db)
+    pub async fn list_daemons(&self) -> Vec<Daemon> {
+        db::list_daemons(&self.db)
             .await
             .into_iter()
             .map(|daemon| Daemon {
@@ -90,6 +90,10 @@ impl PunctureClient {
                 name: daemon.name,
             })
             .collect()
+    }
+
+    pub async fn delete_daemon(&self, daemon: Daemon) {
+        db::delete_daemon(&self.db, daemon.node_id).await;
     }
 }
 
@@ -134,18 +138,13 @@ impl PunctureConnection {
         Self { receiver, handle }
     }
 
-    /// Get a connection from the background task
-    fn get_connection(&self) -> Option<Connection> {
-        self.receiver.borrow().clone()
-    }
-
     /// Make a request to the daemon
     async fn request<R, T>(&self, method: &str, request: R) -> Result<T, String>
     where
         R: Serialize,
         T: DeserializeOwned,
     {
-        let connection = self.get_connection().ok_or("Disconnected")?;
+        let connection = self.receiver.borrow().clone().ok_or("Disconnected")?;
 
         request_json(connection, method, request)
             .await
@@ -224,7 +223,7 @@ impl PunctureConnection {
     }
 
     async fn accept_event(&self) -> anyhow::Result<AppEvent> {
-        let connection = self.get_connection().context("Disconnected")?;
+        let connection = self.receiver.borrow().clone().context("Disconnected")?;
 
         let mut stream = connection.accept_uni().await?;
 

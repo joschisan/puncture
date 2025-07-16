@@ -273,8 +273,8 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: String) -> Result<()> {
         })
     );
 
-    let connection_a = client_a.get_daemons().await.pop().unwrap().connect();
-    let connection_b = client_b.get_daemons().await.pop().unwrap().connect();
+    let connection_a = client_a.list_daemons().await.pop().unwrap().connect();
+    let connection_b = client_b.list_daemons().await.pop().unwrap().connect();
 
     assert_eq!(
         connection_a.next_event().await,
@@ -455,6 +455,23 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: String) -> Result<()> {
     );
 
     println!("Testing Bolt12 was successful!");
+
+    let daemon_a = client_a.list_daemons().await.pop().unwrap();
+    let daemon_b = client_b.list_daemons().await.pop().unwrap();
+
+    client_a.delete_daemon(daemon_a).await;
+    client_b.delete_daemon(daemon_b).await;
+
+    assert!(client_a.list_daemons().await.is_empty());
+    assert!(client_b.list_daemons().await.is_empty());
+
+    client_a.register(invite.clone()).await.unwrap();
+    client_b.register(invite.clone()).await.unwrap();
+
+    assert_eq!(client_a.list_daemons().await.len(), 1);
+    assert_eq!(client_b.list_daemons().await.len(), 1);
+
+    println!("Testing daemon deletion and re-registration was successful!");
 
     Ok(())
 }
