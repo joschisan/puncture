@@ -13,7 +13,7 @@ use puncture_daemon_db::models::{
 };
 use puncture_daemon_db::schema::{invite, invoice, offer, receive, send, user};
 
-use crate::convert::ToPayment;
+use crate::convert::IntoPayment;
 
 pub async fn user_exists(db: &Database, user_pk: String) -> bool {
     let mut conn = db.get_connection().await;
@@ -252,22 +252,22 @@ pub async fn create_send_payment(
 pub async fn user_payments(db: &Database, user_pk: String) -> Vec<puncture_client_core::Payment> {
     let mut conn = db.get_connection().await;
 
-    // Load full ReceiveRecord records and convert using ToPayment trait
+    // Load full ReceiveRecord records and convert using IntoPayment trait
     let receive_payments: Vec<puncture_client_core::Payment> = receive::table
         .filter(receive::user_pk.eq(user_pk.clone()))
         .load::<ReceiveRecord>(&mut *conn)
         .unwrap_or_default()
         .into_iter()
-        .map(|record| record.to_payment(false))
+        .map(|record| record.into_payment(false))
         .collect();
 
-    // Load full SendRecord records and convert using ToPayment trait
+    // Load full SendRecord records and convert using IntoPayment trait
     let send_payments: Vec<puncture_client_core::Payment> = send::table
         .filter(send::user_pk.eq(user_pk))
         .load::<SendRecord>(&mut *conn)
         .unwrap_or_default()
         .into_iter()
-        .map(|record| record.to_payment(false))
+        .map(|record| record.into_payment(false))
         .collect();
 
     let mut all_payments = [receive_payments, send_payments].concat();

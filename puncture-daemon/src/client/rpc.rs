@@ -13,7 +13,7 @@ use puncture_client_core::{
 use puncture_core::unix_time;
 
 use super::db;
-use crate::{AppState, convert::ToPayment};
+use crate::{AppState, convert::IntoPayment};
 
 pub async fn register(
     app_state: Arc<AppState>,
@@ -159,12 +159,17 @@ pub async fn bolt11_send(
             )
             .await;
 
-            push_events(state.clone(), user_pk.clone(), send_record.to_payment(true)).await;
+            push_events(
+                state.clone(),
+                user_pk.clone(),
+                send_record.into_payment(true),
+            )
+            .await;
 
             push_events(
                 state.clone(),
                 invoice.user_pk.clone(),
-                receive_record.to_payment(true),
+                receive_record.into_payment(true),
             )
             .await;
         }
@@ -188,7 +193,7 @@ pub async fn bolt11_send(
             )
             .await;
 
-            push_events(state.clone(), user_pk, record.to_payment(true)).await;
+            push_events(state.clone(), user_pk, record.into_payment(true)).await;
         }
     };
 
@@ -232,12 +237,17 @@ pub async fn bolt12_send(
             )
             .await;
 
-            push_events(state.clone(), user_pk.clone(), send_record.to_payment(true)).await;
+            push_events(
+                state.clone(),
+                user_pk.clone(),
+                send_record.into_payment(true),
+            )
+            .await;
 
             push_events(
                 state.clone(),
                 offer.user_pk.clone(),
-                receive_record.to_payment(true),
+                receive_record.into_payment(true),
             )
             .await;
         }
@@ -261,7 +271,7 @@ pub async fn bolt12_send(
             )
             .await;
 
-            push_events(state.clone(), user_pk, send_record.to_payment(true)).await;
+            push_events(state.clone(), user_pk, send_record.into_payment(true)).await;
         }
     };
 

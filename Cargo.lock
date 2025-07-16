@@ -3940,7 +3940,6 @@ dependencies = [
 name = "puncture-daemon-db"
 version = "0.1.0"
 dependencies = [
- "bitcoin",
  "diesel",
  "diesel_migrations",
 ]

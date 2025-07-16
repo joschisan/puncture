@@ -23,7 +23,10 @@ use url::Url;
 use puncture_core::db::Database;
 use puncture_core::{secret, unix_time};
 
-use crate::{convert::ToPayment, events::EventBus};
+use crate::{
+    convert::{IntoPayment, IntoReceiveRecord},
+    events::EventBus,
+};
 
 #[derive(Parser, Debug, Clone)]
 #[command(group(
@@ -344,7 +347,7 @@ async fn process_ldk_event(node: Arc<Node>, db: Database, event_bus: EventBus, e
 
             event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
 
-            event_bus.send_payment_event(record.user_pk.clone(), record.to_payment(true));
+            event_bus.send_payment_event(record.user_pk.clone(), record.into_payment(true));
         }
         Event::PaymentSuccessful { payment_id, .. } => {
             let record = db::update_send_status(&db, payment_id.unwrap().0, "successful").await;

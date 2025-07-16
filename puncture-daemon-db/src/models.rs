@@ -1,4 +1,3 @@
-use bitcoin::hex::DisplayHex;
 use diesel::{Insertable, Queryable, Selectable};
 
 #[derive(Queryable, Selectable, Insertable, Debug, Clone)]
@@ -31,20 +30,6 @@ pub struct InvoiceRecord {
     pub pr: String,
     pub expires_at: i64,
     pub created_at: i64,
-}
-
-#[allow(clippy::from_over_into)]
-impl InvoiceRecord {
-    pub fn into_receive_record(self, id: [u8; 32], amount_msat: u64) -> ReceiveRecord {
-        ReceiveRecord {
-            id: id.as_hex().to_string(),
-            user_pk: self.user_pk,
-            amount_msat: amount_msat as i64,
-            description: self.description,
-            pr: self.pr,
-            created_at: self.created_at,
-        }
-    }
 }
 
 #[derive(Queryable, Selectable, Insertable, Debug, Clone)]
@@ -85,17 +70,4 @@ pub struct OfferRecord {
     pub pr: String,
     pub expires_at: Option<i64>,
     pub created_at: i64,
-}
-
-impl OfferRecord {
-    pub fn into_receive_record(self, id: [u8; 32], amount_msat: u64) -> ReceiveRecord {
-        ReceiveRecord {
-            id: id.as_hex().to_string(),
-            user_pk: self.user_pk,
-            amount_msat: amount_msat as i64,
-            description: self.description,
-            pr: self.pr,
-            created_at: self.created_at,
-        }
-    }
 }
