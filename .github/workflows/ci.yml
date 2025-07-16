@@ -8,7 +8,7 @@ on:
 
 jobs:
   fmt:
-    name: Format Check
+    name: Cargo Format
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
     - run: cargo fmt --all -- --check
 
   clippy:
-    name: Clippy Check
+    name: Cargo Clippy
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -26,6 +26,24 @@ jobs:
       with:
         components: clippy
     - run: cargo clippy --all-targets --all-features -- -D warnings
+
+  sort:
+    name: Cargo Sort
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - run: cargo install cargo-sort
+    - run: cargo sort --check
+
+  machete:
+    name: Cargo Machete
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - run: cargo install cargo-machete
+    - run: cargo machete
 
   integration-tests:
     name: Integration Tests
