@@ -21,3 +21,8 @@ pub fn read_or_generate(data_dir: &Path) -> iroh::SecretKey {
 
     iroh::SecretKey::from_bytes(&secret)
 }
+
+/// Check if the this is the first startup of the daemon
+pub fn exists(data_dir: &Path) -> bool {
+    data_dir.join("puncture_secret.key").exists()
+}

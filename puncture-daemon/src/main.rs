@@ -184,6 +184,39 @@ fn main() -> Result<()> {
     node.start_with_runtime(runtime.clone())
         .context("Failed to start LDK Node")?;
 
+    // On first startup, connect to public nodes that support Bolt12
+    if !secret::exists(&args.puncture_data_dir) && args.bitcoin_network == Network::Bitcoin {
+        if let Err(e) = node.connect(
+            "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f"
+                .parse()
+                .unwrap(),
+            "3.33.236.230:9735".parse().unwrap(),
+            true,
+        ) {
+            warn!(?e, "Failed to connect to Acinq's public node");
+        }
+
+        if let Err(e) = node.connect(
+            "027100442c3b79f606f80f322d98d499eefcb060599efc5d4ecb00209c2cb54190"
+                .parse()
+                .unwrap(),
+            "3.230.33.224:9735".parse().unwrap(),
+            true,
+        ) {
+            warn!(?e, "Failed to connect to Block's public node");
+        }
+
+        if let Err(e) = node.connect(
+            "03c8e5f583585cac1de2b7503a6ccd3c12ba477cfd139cd4905be504c2f48e86bd"
+                .parse()
+                .unwrap(),
+            "34.73.189.183:9735".parse().unwrap(),
+            true,
+        ) {
+            warn!(?e, "Failed to connect to Strike's public node");
+        }
+    }
+
     let db = Database::new(&args.puncture_data_dir, puncture_daemon_db::MIGRATIONS, 100)?;
 
     let event_bus = EventBus::new(1000);
