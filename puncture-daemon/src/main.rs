@@ -173,16 +173,13 @@ fn main() -> Result<()> {
         _ => panic!("XOR relation is enforced by argument group"),
     }
 
-    builder
-        .set_listening_addresses(vec![args.ldk_bind.into()])
-        .context("Failed to set listening address")?;
+    builder.set_listening_addresses(vec![args.ldk_bind.into()])?;
 
-    let node = Arc::new(builder.build().context("Failed to build LDK Node")?);
+    let node = Arc::new(builder.build()?);
 
     let runtime = Arc::new(tokio::runtime::Runtime::new()?);
 
-    node.start_with_runtime(runtime.clone())
-        .context("Failed to start LDK Node")?;
+    node.start_with_runtime(runtime.clone())?;
 
     // On first startup, connect to public nodes that support Bolt12
     if !secret::exists(&args.puncture_data_dir) && args.bitcoin_network == Network::Bitcoin {
@@ -235,9 +232,7 @@ fn main() -> Result<()> {
         SocketAddr::V6(addr_v6) => builder.bind_addr_v6(addr_v6),
     };
 
-    let endpoint = runtime
-        .block_on(builder.bind())
-        .context("Failed to create iroh endpoint")?;
+    let endpoint = runtime.block_on(builder.bind())?;
 
     let app_state = AppState {
         args: args.clone(),
@@ -269,7 +264,7 @@ fn main() -> Result<()> {
 
     runtime.block_on(shutdown_signal());
 
-    node.stop().context("Failed to stop LDK Node")?;
+    node.stop()?;
 
     ct.cancel();
 
