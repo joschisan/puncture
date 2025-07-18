@@ -350,7 +350,9 @@ async fn process_ldk_event(node: Arc<Node>, db: Database, event_bus: EventBus, e
             event_bus.send_payment_event(record.user_pk.clone(), record.into_payment(true));
         }
         Event::PaymentSuccessful { payment_id, .. } => {
-            let record = db::update_send_status(&db, payment_id.unwrap().0, "successful").await;
+            let record = db::update_send_status(&db, payment_id.unwrap().0, "successful")
+                .await
+                .expect("successful payment not found");
 
             let latency_ms = unix_time().saturating_sub(record.created_at);
 
@@ -358,18 +360,25 @@ async fn process_ldk_event(node: Arc<Node>, db: Database, event_bus: EventBus, e
 
             event_bus.send_update_event(record.user_pk, record.id, "successful");
         }
-        Event::PaymentFailed { payment_id, .. } => {
-            let record = db::update_send_status(&db, payment_id.unwrap().0, "failed").await;
+        Event::PaymentFailed {
+            payment_id, reason, ..
+        } => {
+            match db::update_send_status(&db, payment_id.unwrap().0, "failed").await {
+                Some(record) => {
+                    let latency_ms = unix_time().saturating_sub(record.created_at);
 
-            let latency_ms = unix_time().saturating_sub(record.created_at);
+                    warn!(?record.user_pk, ?latency_ms, "payment failed");
 
-            warn!(?record.user_pk, ?latency_ms, "payment failed");
+                    let balance_msat = db::user_balance(&db, record.user_pk.clone()).await;
 
-            let balance_msat = db::user_balance(&db, record.user_pk.clone()).await;
+                    event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
 
-            event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
-
-            event_bus.send_update_event(record.user_pk, record.id, "failed");
+                    event_bus.send_update_event(record.user_pk, record.id, "failed");
+                }
+                None => {
+                    warn!(?payment_id, ?reason, "failed payment not found");
+                }
+            };
         }
         _ => {}
     }

@@ -25,7 +25,7 @@ pub async fn get_offer(db: &Database, payment_id: [u8; 32]) -> Option<OfferRecor
         .expect("Failed to query offer")
 }
 
-pub async fn update_send_status(db: &Database, id: [u8; 32], status: &str) -> SendRecord {
+pub async fn update_send_status(db: &Database, id: [u8; 32], status: &str) -> Option<SendRecord> {
     let mut conn = db.get_connection().await;
 
     info!(id = ?id.as_hex(), ?status, "Updating send status");
@@ -40,6 +40,7 @@ pub async fn update_send_status(db: &Database, id: [u8; 32], status: &str) -> Se
     send::table
         .filter(send::id.eq(id.as_hex().to_string()))
         .first::<SendRecord>(&mut *conn)
+        .optional()
         .expect("Failed to fetch updated payment")
 }
 
