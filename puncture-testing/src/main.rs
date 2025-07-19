@@ -488,6 +488,10 @@ pub fn start_daemon() -> Result<Child> {
         .arg("http://bitcoin:bitcoin@127.0.0.1:18443")
         .arg("--daemon-name")
         .arg("testing daemon")
+        .arg("--fee-ppm")
+        .arg("10000")
+        .arg("--base-fee-msat")
+        .arg("50000")
         .spawn()
         .context("Failed to start daemon")
 }

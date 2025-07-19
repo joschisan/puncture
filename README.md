@@ -126,8 +126,8 @@ The daemon listens on network interfaces:
 | Env | Default | Description |
 |-----|---------|-------------|
 | `LOG_LEVEL` | info | The log level, can be set to either error, warn, info, debug or trace. 
-| `FEE_PPM` | 10000 | Fee rate in parts per million (PPM) applied to outgoing Lightning payments |
-| `BASE_FEE_MSAT` | 50000 | Fixed base fee in millisatoshis added to all outgoing Lightning payments |
+| `FEE_PPM` | 5000 | Fee rate in parts per million (PPM) applied to outgoing Lightning payments |
+| `BASE_FEE_MSAT` | 10000 | Fixed base fee in millisatoshis added to all outgoing Lightning payments |
 | `INVOICE_EXPIRY_SECS` | 3600 | Expiration time in seconds for all generated Lightning invoices |
 | `CLIENT_BIND` | 0.0.0.0:8080 | Network address and port for the client interface to bind to |
 | `LDK_BIND` | 0.0.0.0:8081 | Network address and port for the Lightning node to listen for peer connections |

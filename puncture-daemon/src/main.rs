@@ -65,11 +65,11 @@ struct Args {
     log_level: String,
 
     /// Fee rate in parts per million (PPM) applied to outgoing Lightning payments.
-    #[arg(long, env = "FEE_PPM", default_value = "10000")]
+    #[arg(long, env = "FEE_PPM", default_value = "5000")]
     fee_ppm: u64,
 
     /// Fixed base fee in millisatoshis added to all outgoing Lightning payments.
-    #[arg(long, env = "BASE_FEE_MSAT", default_value = "50000")]
+    #[arg(long, env = "BASE_FEE_MSAT", default_value = "10000")]
     base_fee_msat: u64,
 
     /// Expiration time in seconds for all generated Lightning invoices.
