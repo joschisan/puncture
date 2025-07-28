@@ -13,6 +13,5 @@ A Puncture daemon for Bitcoin mainnet.
 
 ## Requirements
 
-- **Bitcoin Core** - Automatically provided by Start9
 - **Storage** - At least 1GB free space for Lightning data
 - **Memory** - Minimum 512MB RAM recommended
