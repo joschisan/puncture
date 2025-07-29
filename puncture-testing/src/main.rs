@@ -17,6 +17,7 @@ use lightning_types::payment::PaymentHash;
 
 use puncture_client::PunctureClient;
 use puncture_client_core::{AppEvent, Balance, Payment, Update};
+use puncture_core::invite::Invite;
 
 fn main() -> Result<()> {
     let rpc = Client::new(
@@ -124,10 +125,12 @@ fn main() -> Result<()> {
 
     println!("Daemon invite: {}", response.invite);
 
-    runtime.block_on(run_test(node, response.invite))
+    let invite = Invite::decode(&response.invite).unwrap();
+
+    runtime.block_on(run_test(node, invite))
 }
 
-async fn run_test(node: Arc<ldk_node::Node>, invite: String) -> Result<()> {
+async fn run_test(node: Arc<ldk_node::Node>, invite: Invite) -> Result<()> {
     let client_a = PunctureClient::new("./data-dir-testing/client-a".to_string()).await;
     let client_b = PunctureClient::new("./data-dir-testing/client-b".to_string()).await;
 

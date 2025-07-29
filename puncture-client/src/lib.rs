@@ -19,7 +19,7 @@ use puncture_client_core::{
     RegisterResponse,
 };
 use puncture_core::db::Database;
-use puncture_core::{invite, secret};
+use puncture_core::{invite::Invite, secret};
 
 pub struct PunctureClient {
     endpoint: Endpoint,
@@ -52,9 +52,7 @@ impl PunctureClient {
         Self { endpoint, db }
     }
 
-    pub async fn register(&self, invite: String) -> Result<PunctureConnection, String> {
-        let invite = invite::Invite::decode(&invite).map_err(|_| "Invalid invite".to_string())?;
-
+    pub async fn register(&self, invite: Invite) -> Result<PunctureConnection, String> {
         let connection = self
             .endpoint
             .connect(invite.node_id(), b"puncture-api")

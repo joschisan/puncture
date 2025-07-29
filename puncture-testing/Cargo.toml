@@ -14,6 +14,7 @@ lightning-types = { workspace = true }
 puncture-client-core = { workspace = true }
 puncture-cli-core = { workspace = true }
 puncture-client = { workspace = true }
+puncture-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

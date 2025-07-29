@@ -3979,6 +3979,7 @@ dependencies = [
  "puncture-cli-core",
  "puncture-client",
  "puncture-client-core",
+ "puncture-core",
  "serde",
  "serde_json",
  "tokio",
