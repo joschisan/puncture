@@ -5,12 +5,13 @@ mod db;
 mod events;
 mod ui;
 
+use std::fs;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
 use bitcoin::secp256k1::PublicKey;
 use clap::{ArgGroup, Parser};
 use iroh::Endpoint;
@@ -149,17 +150,11 @@ fn main() -> Result<()> {
         .with_env_filter(EnvFilter::new(args.log_level.clone()))
         .init();
 
-    ensure!(
-        args.puncture_data_dir.is_dir(),
-        "Puncture data dir is not a directory"
-    );
-
-    ensure!(
-        args.puncture_data_dir.exists(),
-        "Puncture data dir does not exist"
-    );
-
     info!("Starting Puncture Daemon...");
+
+    fs::create_dir_all(&args.puncture_data_dir).expect("Failed to create puncture data directory");
+
+    fs::create_dir_all(&args.ldk_data_dir).expect("Failed to create ldk data directory");
 
     let mut builder = Builder::new();
 

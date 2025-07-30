@@ -1,5 +1,6 @@
 mod db;
 
+use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
@@ -31,9 +32,7 @@ impl PunctureClient {
     pub async fn new(data_dir: String) -> Self {
         let data_dir = PathBuf::from(data_dir);
 
-        assert!(data_dir.is_dir(), "Puncture data dir is not a directory");
-
-        assert!(data_dir.exists(), "Puncture data dir does not exist");
+        fs::create_dir_all(&data_dir).expect("Failed to create data directory");
 
         let secret_key = secret::read_or_generate(&data_dir);
 

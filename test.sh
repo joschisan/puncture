@@ -1,12 +1,8 @@
 #!/bin/bash
 set -e  # Exit immediately if a command exits with a non-zero status
 
-# Create data directories if they don't exist
-mkdir -p "./data-dir-testing/daemon/puncture"
-mkdir -p "./data-dir-testing/daemon/ldk"
-mkdir -p "./data-dir-testing/ldk-node"
-mkdir -p "./data-dir-testing/client-a"
-mkdir -p "./data-dir-testing/client-b"
+# Create data directory if it doesn't exist
+mkdir -p "./data-dir-testing"
 
 # Set up trap to handle cleanup on exit (whether success or failure)
 cleanup() {
