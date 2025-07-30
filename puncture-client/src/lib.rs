@@ -6,6 +6,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::Context;
+
 use iroh::Endpoint;
 use iroh::endpoint::{Connection, RelayMode};
 use lightning::offers::offer::Offer;
@@ -16,11 +17,11 @@ use tracing::warn;
 
 use puncture_client_core::{
     AppEvent, Bolt11ReceiveRequest, Bolt11ReceiveResponse, Bolt11SendRequest,
-    Bolt12ReceiveResponse, Bolt12SendRequest, ClientRpcRequest, FeesResponse, RegisterRequest,
-    RegisterResponse,
+    Bolt12ReceiveResponse, Bolt12SendRequest, ClientRpcRequest, FeesResponse, RecoverRequest,
+    RecoverResponse, RegisterRequest, RegisterResponse, SetRecoveryNameRequest,
 };
 use puncture_core::db::Database;
-use puncture_core::{invite::Invite, secret};
+use puncture_core::{InviteCode, RecoveryCode, secret};
 
 pub struct PunctureClient {
     endpoint: Endpoint,
@@ -51,7 +52,7 @@ impl PunctureClient {
         Self { endpoint, db }
     }
 
-    pub async fn register(&self, invite: Invite) -> Result<PunctureConnection, String> {
+    pub async fn register(&self, invite: InviteCode) -> Result<PunctureConnection, String> {
         let connection = self
             .endpoint
             .connect(invite.node_id(), b"puncture-api")
@@ -90,6 +91,10 @@ impl PunctureClient {
 
     pub async fn delete_daemon(&self, daemon: Daemon) {
         db::delete_daemon(&self.db, daemon.node_id).await;
+    }
+
+    pub async fn user_pk(&self) -> String {
+        self.endpoint.secret_key().public().to_string()
     }
 }
 
@@ -226,6 +231,27 @@ impl PunctureConnection {
         let event = stream.read_to_end(100_000).await?;
 
         Ok(serde_json::from_slice(&event)?)
+    }
+
+    /// Set or clear the recovery name for this user
+    pub async fn set_recovery_name(&self, recovery_name: Option<String>) -> Result<(), String> {
+        self.request(
+            "set_recovery_name",
+            SetRecoveryNameRequest { recovery_name },
+        )
+        .await
+    }
+
+    /// Recover a balance from a recovery code
+    pub async fn recover(&self, recovery_code: RecoveryCode) -> Result<u64, String> {
+        self.request(
+            "recover",
+            RecoverRequest {
+                recovery_id: recovery_code.id(),
+            },
+        )
+        .await
+        .map(|response: RecoverResponse| response.balance_msat)
     }
 }
 

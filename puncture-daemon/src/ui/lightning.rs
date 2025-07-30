@@ -6,8 +6,6 @@ use axum::{
 use bitcoin::hex::{DisplayHex, FromHex};
 use ldk_node::UserChannelId;
 use maud::{Markup, html};
-use puncture_core::invite::Invite;
-use rand::Rng;
 use serde::Deserialize;
 
 use super::shared::{
@@ -255,19 +253,6 @@ pub fn lightning_template(
                     }
                 }
             }
-
-            div class="accordion-item" {
-                h2 class="accordion-header" {
-                    button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#inviteUserCollapse" aria-expanded="false" aria-controls="inviteUserCollapse" {
-                        "Invite Users"
-                    }
-                }
-                div id="inviteUserCollapse" class="accordion-collapse collapse" data-bs-parent="#lightningActionsAccordion" {
-                    div class="accordion-body" {
-                        (invite_form())
-                    }
-                }
-            }
         }
     };
 
@@ -316,12 +301,6 @@ pub struct ConnectPeerForm {
 #[derive(Deserialize)]
 pub struct DisconnectPeerForm {
     pub counterparty_node_id: String,
-}
-
-#[derive(Deserialize)]
-pub struct InviteForm {
-    pub expiry_days: u32,
-    pub user_limit: u32,
 }
 
 // Page handler
@@ -438,25 +417,6 @@ fn connect_peer_form(error: Option<&str>) -> Markup {
                 }
             }
             button type="submit" class="btn btn-outline-primary w-100" { "Connect Peer" }
-        }
-    }
-}
-
-fn invite_form() -> Markup {
-    html! {
-        form hx-post="/lightning/users/invite"
-             hx-target="this"
-             hx-swap="outerHTML" {
-
-            div class="mb-3" {
-                label for="expiry-days" class="form-label" { "Expiry (days)" }
-                input type="number" class="form-control" id="expiry-days" name="expiry_days" value="1" min="1" max="365" required {}
-            }
-            div class="mb-3" {
-                label for="user-limit" class="form-label" { "User Limit" }
-                input type="number" class="form-control" id="user-limit" name="user_limit" value="10" min="1" max="1000" required {}
-            }
-            button type="submit" class="btn btn-outline-primary w-100" { "Generate Invite" }
         }
     }
 }
@@ -717,29 +677,4 @@ pub async fn disconnect_peer_submit(
             Html(disconnect_peer_form(&form.counterparty_node_id, Some(&error)).into_string())
         }
     }
-}
-
-pub async fn invite_submit(
-    State(state): State<AppState>,
-    Form(form): Form<InviteForm>,
-) -> Html<String> {
-    let invite_id = rand::rng().random();
-
-    super::db::create_invite(
-        &state.db,
-        &invite_id,
-        form.user_limit,
-        form.expiry_days * 24 * 60 * 60,
-    )
-    .await;
-
-    let invite = Invite::new(invite_id, state.node_id).encode();
-
-    let html = success_replacement(
-        "Invite Generated",
-        "Share this invite code with your users:",
-        qr_code_with_copy(&invite),
-    );
-
-    Html(html.into_string())
 }

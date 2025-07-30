@@ -170,6 +170,8 @@ async fn handle_request(
             ),
             "bolt11_send" => method!(bolt11_send, state, user_id, request.request),
             "bolt12_send" => method!(bolt12_send, state, user_id, request.request),
+            "set_recovery_name" => method!(set_recovery_name, state, user_id, request.request),
+            "recover" => method!(recover, state, user_id, request.request),
             _ => Err(format!("Method '{}' not found", request.method)),
         }
     } else {

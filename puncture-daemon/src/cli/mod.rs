@@ -12,6 +12,7 @@ use puncture_cli_core::{
     ROUTE_LDK_CHANNEL_REQUEST, ROUTE_LDK_NODE_ID, ROUTE_LDK_ONCHAIN_DRAIN,
     ROUTE_LDK_ONCHAIN_RECEIVE, ROUTE_LDK_ONCHAIN_SEND, ROUTE_LDK_PEER_CONNECT,
     ROUTE_LDK_PEER_DISCONNECT, ROUTE_LDK_PEER_LIST, ROUTE_USER_INVITE, ROUTE_USER_LIST,
+    ROUTE_USER_RECOVER,
 };
 
 use crate::AppState;
@@ -69,5 +70,6 @@ pub fn router() -> Router<AppState> {
         .route(ROUTE_LDK_PEER_DISCONNECT, post(rpc::ldk_peer_disconnect))
         .route(ROUTE_LDK_PEER_LIST, post(rpc::ldk_peer_list))
         .route(ROUTE_USER_INVITE, post(rpc::user_invite))
+        .route(ROUTE_USER_RECOVER, post(rpc::user_recover))
         .route(ROUTE_USER_LIST, post(rpc::user_list))
 }

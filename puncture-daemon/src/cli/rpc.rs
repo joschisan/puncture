@@ -13,10 +13,10 @@ use puncture_cli_core::{
     BalancesResponse, ChannelInfo, CloseChannelRequest, ConnectPeerRequest, DisconnectPeerRequest,
     InviteRequest, InviteResponse, ListChannelsResponse, ListPeersResponse, ListUsersResponse,
     NodeIdResponse, OnchainDrainRequest, OnchainReceiveResponse, OnchainSendRequest,
-    OpenChannelRequest, OpenChannelResponse, PeerInfo, RequestChannelRequest,
-    RequestChannelResponse,
+    OpenChannelRequest, OpenChannelResponse, PeerInfo, RecoverRequest, RecoverResponse,
+    RequestChannelRequest, RequestChannelResponse,
 };
-use puncture_core::invite::Invite;
+use puncture_core::PunctureCode;
 
 use crate::AppState;
 
@@ -357,7 +357,25 @@ pub async fn user_invite(
     .await;
 
     Ok(Json(InviteResponse {
-        invite: Invite::new(invite_id, state.node_id).encode(),
+        invite: PunctureCode::invite(invite_id, state.node_id).encode(),
+    }))
+}
+
+#[tracing::instrument(skip(state))]
+pub async fn user_recover(
+    State(state): State<AppState>,
+    Json(request): Json<RecoverRequest>,
+) -> Result<Json<RecoverResponse>, CliError> {
+    if !db::user_exists(&state.db, request.user_pk.clone()).await {
+        return Err(CliError::bad_request("User does not exist"));
+    }
+
+    let recovery_id = rand::rng().random();
+
+    db::create_recovery(&state.db, &recovery_id, &request.user_pk, 60 * 60 * 24).await;
+
+    Ok(Json(RecoverResponse {
+        recovery: PunctureCode::recovery(recovery_id).encode(),
     }))
 }
 

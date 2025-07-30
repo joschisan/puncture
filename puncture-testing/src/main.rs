@@ -17,7 +17,7 @@ use lightning_types::payment::PaymentHash;
 
 use puncture_client::PunctureClient;
 use puncture_client_core::{AppEvent, Balance, Payment, Update};
-use puncture_core::invite::Invite;
+use puncture_core::{InviteCode, PunctureCode};
 
 fn main() -> Result<()> {
     let rpc = Client::new(
@@ -125,12 +125,15 @@ fn main() -> Result<()> {
 
     println!("Daemon invite: {}", response.invite);
 
-    let invite = Invite::decode(&response.invite).unwrap();
+    let invite = PunctureCode::decode(&response.invite)
+        .unwrap()
+        .to_invite()
+        .unwrap();
 
     runtime.block_on(run_test(node, invite))
 }
 
-async fn run_test(node: Arc<ldk_node::Node>, invite: Invite) -> Result<()> {
+async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     let client_a = PunctureClient::new("./data-dir-testing/client-a".to_string()).await;
     let client_b = PunctureClient::new("./data-dir-testing/client-b".to_string()).await;
 
@@ -475,6 +478,42 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: Invite) -> Result<()> {
     assert_eq!(client_b.list_daemons().await.len(), 1);
 
     println!("Testing daemon deletion and re-registration was successful!");
+
+    let client_c = PunctureClient::new("./data-dir-testing/client-c".to_string()).await;
+
+    client_c.register(invite.clone()).await.unwrap();
+
+    let response = cli::recover(client_a.user_pk().await).unwrap();
+
+    let recovery = PunctureCode::decode(&response.recovery)
+        .unwrap()
+        .to_recovery()
+        .unwrap();
+
+    let connection_c = client_c.register(invite).await.unwrap();
+
+    assert_eq!(
+        connection_c.next_event().await,
+        AppEvent::Balance(Balance { amount_msat: 0 })
+    );
+
+    assert_eq!(connection_c.recover(recovery).await.unwrap(), 594_000);
+
+    assert_eq!(
+        connection_c.next_event().await,
+        AppEvent::Balance(Balance {
+            amount_msat: 594_000
+        })
+    );
+
+    connection_c
+        .set_recovery_name(Some("joschisan".to_string()))
+        .await
+        .unwrap();
+
+    assert_eq!(cli::list_users().unwrap().len(), 3);
+
+    println!("Testing user recovery was successful!");
 
     Ok(())
 }

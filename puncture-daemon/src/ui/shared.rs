@@ -1,8 +1,10 @@
+use std::str::FromStr;
+
 use bitcoin::secp256k1::PublicKey;
+use chrono::DateTime;
 use lightning::ln::msgs::SocketAddress;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use qrcode::QrCode;
-use std::str::FromStr;
 
 pub fn format_sats(sats: u64) -> String {
     sats.to_string()
@@ -12,6 +14,13 @@ pub fn format_sats(sats: u64) -> String {
         .map(|chunk| std::str::from_utf8(chunk).unwrap())
         .collect::<Vec<&str>>()
         .join(",")
+}
+
+pub fn format_timestamp(timestamp_ms: i64) -> String {
+    DateTime::from_timestamp_millis(timestamp_ms)
+        .unwrap()
+        .format("%d %B %Y")
+        .to_string()
 }
 
 pub fn qr_code_with_copy(data: &str) -> Markup {
@@ -84,6 +93,11 @@ pub fn base_template(
                                 a class={
                                     "nav-link" @if current_path == "/onchain" { " active" }
                                 } href="/onchain" { "Onchain" }
+                            }
+                            li class="nav-item" {
+                                a class={
+                                    "nav-link" @if current_path == "/users" { " active" }
+                                } href="/users" { "Users" }
                             }
                         }
 

@@ -59,11 +59,23 @@ diesel::table! {
 }
 
 diesel::table! {
-    user (user_pk) {
+    recovery (id) {
+        id -> Text,
         user_pk -> Text,
-        invite_id -> Text,
+        expires_at -> BigInt,
         created_at -> BigInt,
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(invite, invoice, receive, send, offer, user,);
+diesel::table! {
+    user (user_pk) {
+        user_pk -> Text,
+        invite_id -> Text,
+        recovery_name -> Nullable<Text>,
+        created_at -> BigInt,
+    }
+}
+
+diesel::allow_tables_to_appear_in_same_query!(
+    invite, invoice, receive, send, offer, recovery, user,
+);

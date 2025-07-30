@@ -8,7 +8,8 @@ use tracing::{error, info};
 
 use puncture_client_core::{
     Bolt11ReceiveRequest, Bolt11ReceiveResponse, Bolt11SendRequest, Bolt12ReceiveResponse,
-    Bolt12SendRequest, FeesResponse, RegisterRequest, RegisterResponse,
+    Bolt12SendRequest, FeesResponse, RecoverRequest, RecoverResponse, RegisterRequest,
+    RegisterResponse, SetRecoveryNameRequest,
 };
 use puncture_core::unix_time;
 
@@ -22,7 +23,11 @@ pub async fn register(
 ) -> Result<RegisterResponse, String> {
     let invite = db::get_invite(&app_state.db, &request.invite_id)
         .await
-        .ok_or("Invite not found".to_string())?;
+        .ok_or("Unknown invite code".to_string())?;
+
+    if invite.expires_at < unix_time() {
+        return Err("Invite expired".to_string());
+    }
 
     if invite.expires_at < unix_time() {
         return Err("Invite expired".to_string());
@@ -334,4 +339,86 @@ async fn push_events(
         .send_balance_event(user_pk.clone(), balance_msat);
 
     state.event_bus.send_payment_event(user_pk, payment);
+}
+
+pub async fn set_recovery_name(
+    state: Arc<AppState>,
+    user_pk: String,
+    request: SetRecoveryNameRequest,
+) -> Result<(), String> {
+    if let Some(recovery_name) = request.recovery_name.as_ref() {
+        if recovery_name.is_empty() {
+            return Err("Recovery name cannot be empty".to_string());
+        }
+
+        if recovery_name.len() > 20 {
+            return Err("Recovery name must be less than 20 characters".to_string());
+        }
+
+        if !recovery_name
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c.is_ascii_whitespace())
+        {
+            return Err("Recovery name can only contain letters and spaces".to_string());
+        }
+    }
+
+    db::set_recovery_name(&state.db, user_pk, request.recovery_name).await;
+
+    Ok(())
+}
+
+pub async fn recover(
+    app_state: Arc<AppState>,
+    user_pk: String,
+    request: RecoverRequest,
+) -> Result<RecoverResponse, String> {
+    let recovery = db::get_recovery(&app_state.db, &request.recovery_id)
+        .await
+        .ok_or("Unknown recovery code".to_string())?;
+
+    if recovery.expires_at < unix_time() {
+        return Err("Recovery expired".to_string());
+    }
+
+    if user_pk == recovery.user_pk {
+        return Err("You cannot recover the current user".to_string());
+    }
+
+    let send_lock = app_state.send_lock.lock().await;
+
+    let balance_msat = crate::db::user_balance(&app_state.db, recovery.user_pk.clone()).await;
+
+    if balance_msat == 0 {
+        return Err("User has no balance to recover".to_string());
+    }
+
+    let (send_record, receive_record) = db::create_internal_transfer(
+        &app_state.db,
+        recovery.user_pk.clone(),
+        user_pk.clone(),
+        balance_msat as i64,
+        0,
+        recovery.id.clone(),
+        "Recovery".to_string(),
+    )
+    .await;
+
+    drop(send_lock);
+
+    push_events(
+        app_state.clone(),
+        recovery.user_pk.clone(),
+        send_record.into_payment(true),
+    )
+    .await;
+
+    push_events(
+        app_state.clone(),
+        user_pk.clone(),
+        receive_record.into_payment(true),
+    )
+    .await;
+
+    Ok(RecoverResponse { balance_msat })
 }

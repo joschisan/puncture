@@ -111,3 +111,21 @@ pub struct Bolt12SendRequest {
     /// Amount override in millisatoshis
     pub amount_msat: u64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SetRecoveryNameRequest {
+    /// The recovery name
+    pub recovery_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoverRequest {
+    /// The recovery id
+    pub recovery_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoverResponse {
+    /// The recovered balance in millisatoshis
+    pub balance_msat: u64,
+}

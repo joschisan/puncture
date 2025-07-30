@@ -10,7 +10,7 @@ use puncture_cli_core::{
     ROUTE_LDK_CHANNEL_REQUEST, ROUTE_LDK_NODE_ID, ROUTE_LDK_ONCHAIN_DRAIN,
     ROUTE_LDK_ONCHAIN_RECEIVE, ROUTE_LDK_ONCHAIN_SEND, ROUTE_LDK_PEER_CONNECT,
     ROUTE_LDK_PEER_DISCONNECT, ROUTE_LDK_PEER_LIST, ROUTE_USER_INVITE, ROUTE_USER_LIST,
-    RequestChannelRequest,
+    ROUTE_USER_RECOVER, RecoverRequest, RequestChannelRequest,
 };
 
 #[derive(Parser, Debug)]
@@ -97,6 +97,8 @@ enum AdminPeerCommands {
 enum AdminUserCommands {
     /// Generate an invite code
     Invite(InviteRequest),
+    /// Recover a user
+    Recover(RecoverRequest),
     /// List all users
     List,
 }
@@ -143,6 +145,7 @@ fn main() -> Result<()> {
         },
         AdminCommands::User { command } => match command {
             AdminUserCommands::Invite(req) => request(cli.cli_port, ROUTE_USER_INVITE, req),
+            AdminUserCommands::Recover(req) => request(cli.cli_port, ROUTE_USER_RECOVER, req),
             AdminUserCommands::List => request(cli.cli_port, ROUTE_USER_LIST, ()),
         },
     }

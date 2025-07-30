@@ -17,6 +17,7 @@ pub const ROUTE_LDK_PEER_CONNECT: &str = "/ldk/peer/connect";
 pub const ROUTE_LDK_PEER_DISCONNECT: &str = "/ldk/peer/disconnect";
 pub const ROUTE_LDK_PEER_LIST: &str = "/ldk/peer/list";
 pub const ROUTE_USER_INVITE: &str = "/user/invite";
+pub const ROUTE_USER_RECOVER: &str = "/user/recover";
 pub const ROUTE_USER_LIST: &str = "/user/list";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,12 +199,29 @@ pub struct InviteResponse {
     pub invite: String,
 }
 
+#[derive(Debug, Clone, Args, Serialize, Deserialize)]
+pub struct RecoverRequest {
+    /// The user's public key
+    pub user_pk: String,
+    /// Expiry time in days
+    #[arg(long, default_value = "1")]
+    pub expiry_days: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoverResponse {
+    /// The recovery code in hex encoding
+    pub recovery: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
     /// The user's public key
     pub user_pk: String,
     /// The user's balance in millisatoshis
     pub balance_msat: u64,
+    /// Optional recovery name for operator identification
+    pub recovery_name: Option<String>,
     /// Timestamp in milliseconds since the Unix epoch
     pub created_at: i64,
 }

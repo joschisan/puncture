@@ -9,9 +9,9 @@ use tracing::info;
 use puncture_core::db::Database;
 use puncture_core::unix_time;
 use puncture_daemon_db::models::{
-    InviteRecord, InvoiceRecord, OfferRecord, ReceiveRecord, SendRecord, User,
+    InviteRecord, InvoiceRecord, OfferRecord, ReceiveRecord, RecoveryRecord, SendRecord, User,
 };
-use puncture_daemon_db::schema::{invite, invoice, offer, receive, send, user};
+use puncture_daemon_db::schema::{invite, invoice, offer, receive, recovery, send, user};
 
 use crate::convert::IntoPayment;
 
@@ -57,11 +57,24 @@ pub async fn register_user_with_invite(db: &Database, user_pk: String, invite_id
             user_pk,
             invite_id,
             created_at: unix_time(),
+            recovery_name: None,
         })
         .on_conflict(user::user_pk)
         .do_nothing()
         .execute(&mut *conn)
         .expect("Failed to register user with invite");
+}
+
+pub async fn get_recovery(db: &Database, recovery_id: &str) -> Option<RecoveryRecord> {
+    let mut conn = db.get_connection().await;
+
+    let recovery_id = recovery_id.to_string();
+
+    recovery::table
+        .filter(recovery::id.eq(recovery_id))
+        .first::<RecoveryRecord>(&mut *conn)
+        .optional()
+        .expect("Failed to query recovery")
 }
 
 pub async fn create_invoice(
@@ -164,10 +177,10 @@ pub async fn create_internal_transfer(
     pr: String,
     description: String,
 ) -> (SendRecord, ReceiveRecord) {
-    let transer_id = rand::rng().random::<[u8; 32]>().as_hex().to_string();
+    let transfer_id = rand::rng().random::<[u8; 32]>().as_hex().to_string();
 
     info!(
-        ?transer_id,
+        ?transfer_id,
         ?send_user_pk,
         ?receive_user_pk,
         ?amount_msat,
@@ -175,7 +188,7 @@ pub async fn create_internal_transfer(
     );
 
     let send_record = SendRecord {
-        id: transer_id.clone(),
+        id: transfer_id.clone(),
         user_pk: send_user_pk,
         amount_msat,
         fee_msat,
@@ -187,7 +200,7 @@ pub async fn create_internal_transfer(
     };
 
     let receive_record = ReceiveRecord {
-        id: transer_id,
+        id: transfer_id,
         user_pk: receive_user_pk,
         amount_msat,
         description,
@@ -275,4 +288,13 @@ pub async fn user_payments(db: &Database, user_pk: String) -> Vec<puncture_clien
     all_payments.sort_by_key(|payment| payment.created_at);
 
     all_payments
+}
+
+pub async fn set_recovery_name(db: &Database, user_pk: String, recovery_name: Option<String>) {
+    let mut conn = db.get_connection().await;
+
+    diesel::update(user::table.filter(user::user_pk.eq(user_pk)))
+        .set(user::recovery_name.eq(recovery_name))
+        .execute(&mut *conn)
+        .expect("Failed to update recovery name");
 }

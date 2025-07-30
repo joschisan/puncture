@@ -2,6 +2,7 @@ mod db;
 mod lightning;
 mod onchain;
 mod shared;
+mod users;
 
 use axum::{
     Router,
@@ -51,5 +52,7 @@ fn create_router() -> Router<AppState> {
         .route("/onchain/receive", post(onchain::onchain_receive_submit))
         .route("/onchain/send", post(onchain::onchain_send_submit))
         .route("/onchain/drain", post(onchain::onchain_drain_submit))
-        .route("/lightning/users/invite", post(lightning::invite_submit))
+        .route("/users", get(users::users_page))
+        .route("/users/invite", post(users::invite_submit))
+        .route("/users/recover", post(users::recovery_submit))
 }

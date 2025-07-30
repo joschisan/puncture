@@ -76,5 +76,7 @@ pub async fn user_balance(db: &Database, user_pk: String) -> u64 {
         .map(|(amount, fee)| amount + fee)
         .sum();
 
-    (receive_sum as u64).checked_sub(send_sum as u64).unwrap()
+    (receive_sum as u64)
+        .checked_sub(send_sum as u64)
+        .expect("Balance is negative")
 }

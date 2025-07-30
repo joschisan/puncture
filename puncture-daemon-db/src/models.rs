@@ -6,6 +6,7 @@ use diesel::{Insertable, Queryable, Selectable};
 pub struct User {
     pub user_pk: String,
     pub invite_id: String,
+    pub recovery_name: Option<String>,
     pub created_at: i64,
 }
 
@@ -69,5 +70,15 @@ pub struct OfferRecord {
     pub description: String,
     pub pr: String,
     pub expires_at: Option<i64>,
+    pub created_at: i64,
+}
+
+#[derive(Queryable, Selectable, Insertable, Debug, Clone)]
+#[diesel(table_name = crate::schema::recovery)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
+pub struct RecoveryRecord {
+    pub id: String,
+    pub user_pk: String,
+    pub expires_at: i64,
     pub created_at: i64,
 }

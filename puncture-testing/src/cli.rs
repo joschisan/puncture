@@ -6,8 +6,8 @@ use bitcoin::{Address, Network};
 use serde::de::DeserializeOwned;
 
 use puncture_cli_core::{
-    BalancesResponse, ChannelInfo, InviteResponse, ListChannelsResponse, OnchainReceiveResponse,
-    OpenChannelResponse,
+    BalancesResponse, ChannelInfo, InviteResponse, ListChannelsResponse, ListUsersResponse,
+    OnchainReceiveResponse, OpenChannelResponse, RecoverResponse, UserInfo,
 };
 
 trait RunPunctureCli {
@@ -80,4 +80,20 @@ pub fn invite() -> Result<InviteResponse> {
         .arg("user")
         .arg("invite")
         .run_puncture_cli::<InviteResponse>()
+}
+
+pub fn recover(user_pk: String) -> Result<RecoverResponse> {
+    Command::new("target/debug/puncture-cli")
+        .arg("user")
+        .arg("recover")
+        .arg(user_pk)
+        .run_puncture_cli::<RecoverResponse>()
+}
+
+pub fn list_users() -> Result<Vec<UserInfo>> {
+    Command::new("target/debug/puncture-cli")
+        .arg("user")
+        .arg("list")
+        .run_puncture_cli::<ListUsersResponse>()
+        .map(|response| response.users)
 }
