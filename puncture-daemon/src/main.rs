@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use bitcoin::secp256k1::PublicKey;
 use clap::{ArgGroup, Parser};
 use iroh::Endpoint;
@@ -327,9 +327,13 @@ async fn process_ldk_events(
             event = node.next_event_async() => {
                 info!("Processing LDK Event: {:?}", event);
 
-                process_ldk_event(node.clone(), db.clone(), event_bus.clone(), event).await;
+                if let Err(e) = process_ldk_event(node.clone(), db.clone(), event_bus.clone(), event).await {
+                    warn!(?e, "Failed to process LDK event");
+                }
 
-                node.event_handled().expect("Failed to handle event");
+                if let Err(e) = node.event_handled() {
+                    warn!(?e, "Failed to mark ldk event as handled");
+                }
             },
             _ = ct.cancelled() => {
                 break;
@@ -338,7 +342,12 @@ async fn process_ldk_events(
     }
 }
 
-async fn process_ldk_event(node: Arc<Node>, db: Database, event_bus: EventBus, event: Event) {
+async fn process_ldk_event(
+    node: Arc<Node>,
+    db: Database,
+    event_bus: EventBus,
+    event: Event,
+) -> Result<()> {
     match event {
         Event::PaymentReceived {
             payment_id,
@@ -347,18 +356,18 @@ async fn process_ldk_event(node: Arc<Node>, db: Database, event_bus: EventBus, e
         } => {
             let record = match node
                 .payment(&payment_id.unwrap())
-                .expect("Payment not found")
+                .context("Payment not found")?
                 .kind
             {
                 PaymentKind::Bolt11 { hash, .. } => db::get_invoice(&db, hash.0)
                     .await
-                    .expect("Invoice not found")
+                    .context("Invoice not found")?
                     .into_receive_record(payment_id.unwrap().0, amount_msat),
                 PaymentKind::Bolt12Offer { offer_id, .. } => db::get_offer(&db, offer_id.0)
                     .await
-                    .expect("Offer not found")
+                    .context("Offer not found")?
                     .into_receive_record(payment_id.unwrap().0, amount_msat),
-                _ => panic!("Unexpected payment kind"),
+                _ => bail!("Unexpected payment kind"),
             };
 
             info!(?amount_msat, ?record.user_pk, "payment received");
@@ -372,38 +381,41 @@ async fn process_ldk_event(node: Arc<Node>, db: Database, event_bus: EventBus, e
             event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
 
             event_bus.send_payment_event(record.user_pk.clone(), record.into_payment(true));
+
+            Ok(())
         }
         Event::PaymentSuccessful { payment_id, .. } => {
             let record = db::update_send_status(&db, payment_id.unwrap().0, "successful")
                 .await
-                .expect("successful payment not found");
+                .context("successful payment not found")?;
 
             let latency_ms = unix_time().saturating_sub(record.created_at);
 
             info!(?record.user_pk, ?latency_ms, "payment successful");
 
             event_bus.send_update_event(record.user_pk, record.id, "successful");
+
+            Ok(())
         }
         Event::PaymentFailed {
             payment_id, reason, ..
         } => {
-            match db::update_send_status(&db, payment_id.unwrap().0, "failed").await {
-                Some(record) => {
-                    let latency_ms = unix_time().saturating_sub(record.created_at);
+            let record = db::update_send_status(&db, payment_id.unwrap().0, "failed")
+                .await
+                .context("failed payment not found")?;
 
-                    warn!(?record.user_pk, ?latency_ms, "payment failed");
+            let latency_ms = unix_time().saturating_sub(record.created_at);
 
-                    let balance_msat = db::user_balance(&db, record.user_pk.clone()).await;
+            warn!(?record.user_pk, ?latency_ms, ?reason, "payment failed");
 
-                    event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
+            let balance_msat = db::user_balance(&db, record.user_pk.clone()).await;
 
-                    event_bus.send_update_event(record.user_pk, record.id, "failed");
-                }
-                None => {
-                    warn!(?payment_id, ?reason, "failed payment not found");
-                }
-            };
+            event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
+
+            event_bus.send_update_event(record.user_pk, record.id, "failed");
+
+            Ok(())
         }
-        _ => {}
+        _ => Ok(()),
     }
 }
