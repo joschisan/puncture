@@ -203,7 +203,12 @@ pub async fn events(
 
     let payments = db::user_payments(&state.db, user_pk.clone()).await;
 
-    let payment_events = payments.into_iter().map(AppEvent::Payment);
+    let payment_events = payments
+        .into_iter()
+        .rev()
+        .take(50)
+        .rev()
+        .map(AppEvent::Payment);
 
     stream::once(future::ready(Ok(balance_event)))
         .chain(stream::iter(payment_events.map(Ok)))
