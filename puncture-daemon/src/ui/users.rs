@@ -13,8 +13,6 @@ use crate::AppState;
 pub async fn users_page(State(state): State<AppState>) -> Html<String> {
     let users = super::db::list_users(&state.db).await;
 
-    let total_user_count = users.len();
-
     // Filter to only users with recovery names and sort by recovery_name
     let mut filtered_users: Vec<_> = users
         .into_iter()
@@ -23,12 +21,12 @@ pub async fn users_page(State(state): State<AppState>) -> Html<String> {
 
     filtered_users.sort_by_key(|a| a.recovery_name.as_ref().unwrap().to_string());
 
-    let html = users_template(&filtered_users, total_user_count);
+    let html = users_template(&filtered_users);
 
     Html(html.into_string())
 }
 
-fn users_template(users: &[puncture_cli_core::UserInfo], total_user_count: usize) -> Markup {
+fn users_template(users: &[puncture_cli_core::UserInfo]) -> Markup {
     let content = html! {
         // Users Accordion
         @if users.is_empty() {
@@ -48,7 +46,7 @@ fn users_template(users: &[puncture_cli_core::UserInfo], total_user_count: usize
                         }
                         div id={(format!("user-{}", i))} class="accordion-collapse collapse" data-bs-parent="#usersAccordion" {
                             div class="accordion-body" {
-                                table class="table table-sm table-borderless mb-0" {
+                                table class="table table-sm table-borderless mb-3" {
                                     tbody {
                                         tr {
                                             td class="fw-bold" style="width: 1px; white-space: nowrap;" { "Public Key" }
@@ -63,6 +61,27 @@ fn users_template(users: &[puncture_cli_core::UserInfo], total_user_count: usize
                                         tr {
                                             td class="fw-bold" { "Created" }
                                             td class="text-muted font-monospace" { (format_timestamp(user.created_at)) }
+                                        }
+                                    }
+                                }
+                                div class="d-flex justify-content-end" {
+                                    div class="accordion" id={(format!("recoveryAccordion-{}", i))} style="width: 300px;" {
+                                        div class="accordion-item" {
+                                            h2 class="accordion-header" {
+                                                button class="accordion-button collapsed btn-outline-primary" type="button"
+                                                       data-bs-toggle="collapse"
+                                                       data-bs-target={(format!("#recoveryCollapse-{}", i))}
+                                                       aria-expanded="false"
+                                                       aria-controls={(format!("recoveryCollapse-{}", i))} {
+                                                    "Recover"
+                                                }
+                                            }
+                                            div id={(format!("recoveryCollapse-{}", i))} class="accordion-collapse collapse"
+                                                 data-bs-parent={(format!("#recoveryAccordion-{}", i))} {
+                                                div class="accordion-body" {
+                                                    (recovery_form_for_user(&user.user_pk, i))
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -89,24 +108,10 @@ fn users_template(users: &[puncture_cli_core::UserInfo], total_user_count: usize
                     }
                 }
             }
-
-            // User Recovery
-            div class="accordion-item" {
-                h2 class="accordion-header" {
-                    button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#userRecoveryCollapse" aria-expanded="false" aria-controls="userRecoveryCollapse" {
-                        "Recover"
-                    }
-                }
-                div id="userRecoveryCollapse" class="accordion-collapse collapse" data-bs-parent="#usersActionsAccordion" {
-                    div class="accordion-body" {
-                        (recovery_form())
-                    }
-                }
-            }
         }
     };
 
-    base_template("Users", "/users", content, action_sidebar, total_user_count)
+    base_template("Users", "/users", content, action_sidebar)
 }
 
 // Form structs
@@ -141,16 +146,14 @@ fn invite_form() -> Markup {
     }
 }
 
-fn recovery_form() -> Markup {
+fn recovery_form_for_user(user_pk: &str, _user_index: usize) -> Markup {
     html! {
         form hx-post="/users/recover"
              hx-target="this"
              hx-swap="outerHTML" {
 
-            div class="mb-3" {
-                label for="user-pk" class="form-label" { "Public Key" }
-                input type="text" class="form-control font-monospace" id="user-pk" name="user_pk" placeholder="852e98f0..." required {}
-            }
+            input type="hidden" name="user_pk" value=(user_pk) {}
+
             button type="submit" class="btn btn-outline-primary w-100" { "Generate Recovery Code" }
         }
     }
@@ -189,20 +192,19 @@ pub async fn recovery_submit(
     // Validate user exists
     if !super::db::user_exists(&state.db, form.user_pk.clone()).await {
         let html = html! {
-            div class="alert alert-danger" { "User not found with that public key" }
-            (recovery_form())
+            div class="alert alert-danger" { "Unknown public key" }
         };
+
         return Html(html.into_string());
     }
 
-    // Create recovery code (7 days expiry)
     let recovery_id = rand::rng().random();
 
     super::db::create_recovery(
         &state.db,
         &recovery_id,
         &form.user_pk,
-        7 * 24 * 60 * 60, // 7 days
+        24 * 60 * 60, // 1 day
     )
     .await;
 

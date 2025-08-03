@@ -1,8 +1,4 @@
-use axum::{
-    Form,
-    extract::State,
-    response::{Html, IntoResponse},
-};
+use axum::{Form, extract::State, response::Html};
 use maud::{Markup, html};
 use serde::Deserialize;
 
@@ -10,7 +6,7 @@ use super::shared::{base_template, format_sats, qr_code_with_copy, success_repla
 use crate::AppState;
 use bitcoin::{Address, address::NetworkUnchecked};
 
-pub fn onchain_template(onchain_balance: u64, user_count: usize) -> Markup {
+pub fn onchain_template(onchain_balance: u64) -> Markup {
     let content = html! {
         div class="row g-4" {
             div class="col-12" {
@@ -67,7 +63,7 @@ pub fn onchain_template(onchain_balance: u64, user_count: usize) -> Markup {
         }
     };
 
-    base_template("Onchain", "/onchain", content, action_sidebar, user_count)
+    base_template("Onchain", "/onchain", content, action_sidebar)
 }
 
 fn receive_bitcoin_form() -> Markup {
@@ -137,13 +133,8 @@ pub struct OnchainDrainForm {
     pub address: String,
 }
 
-pub async fn onchain_page(State(state): State<AppState>) -> impl IntoResponse {
-    let user_count = super::db::list_users(&state.db).await.len();
-
-    let html = onchain_template(
-        state.node.list_balances().total_onchain_balance_sats,
-        user_count,
-    );
+pub async fn onchain_page(State(state): State<AppState>) -> Html<String> {
+    let html = onchain_template(state.node.list_balances().total_onchain_balance_sats);
 
     Html(html.into_string())
 }

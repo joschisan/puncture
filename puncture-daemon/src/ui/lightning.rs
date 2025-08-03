@@ -20,7 +20,6 @@ pub fn lightning_template(
     total_outbound_capacity_msat: u64,
     channels: &[ldk_node::ChannelDetails],
     peers: &[ldk_node::PeerDetails],
-    user_count: usize,
 ) -> Markup {
     let content = html! {
         // Overview Cards
@@ -123,7 +122,7 @@ pub fn lightning_template(
                                                     }
                                                     div id={(format!("closeCollapse-{}", i))} class="accordion-collapse collapse"
                                                          data-bs-parent={(format!("#closeAccordion-{}", i))} {
-                                                        div class="accordion-body p-2" {
+                                                        div class="accordion-body" {
                                                             (close_channel_form(
                                                                 &channel.user_channel_id.0.to_be_bytes().as_hex().to_string(),
                                                                 &channel.counterparty_node_id.to_string(),
@@ -195,7 +194,25 @@ pub fn lightning_template(
                                             }
                                         }
                                         div class="d-flex justify-content-end" {
-                                            (disconnect_peer_form(&peer.node_id.to_string(), None))
+                                            div class="accordion" id={(format!("disconnectAccordion-{}", i))} style="width: 300px;" {
+                                                div class="accordion-item" {
+                                                    h2 class="accordion-header" {
+                                                        button class="accordion-button collapsed btn-outline-danger" type="button"
+                                                               data-bs-toggle="collapse"
+                                                               data-bs-target={(format!("#disconnectCollapse-{}", i))}
+                                                               aria-expanded="false"
+                                                               aria-controls={(format!("disconnectCollapse-{}", i))} {
+                                                            "Disconnect Peer"
+                                                        }
+                                                    }
+                                                    div id={(format!("disconnectCollapse-{}", i))} class="accordion-collapse collapse"
+                                                         data-bs-parent={(format!("#disconnectAccordion-{}", i))} {
+                                                        div class="accordion-body" {
+                                                            (disconnect_peer_form(&peer.node_id.to_string(), None))
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -256,13 +273,7 @@ pub fn lightning_template(
         }
     };
 
-    base_template(
-        "Lightning",
-        "/lightning",
-        content,
-        action_sidebar,
-        user_count,
-    )
+    base_template("Lightning", "/lightning", content, action_sidebar)
 }
 
 // Form structs (reusing existing ones)
@@ -307,7 +318,6 @@ pub struct DisconnectPeerForm {
 pub async fn lightning_page(State(state): State<AppState>) -> impl IntoResponse {
     let channels = state.node.list_channels();
     let peers = state.node.list_peers();
-    let users = super::db::list_users(&state.db).await;
 
     let total_inbound_capacity_msat = channels
         .iter()
@@ -328,7 +338,6 @@ pub async fn lightning_page(State(state): State<AppState>) -> impl IntoResponse 
             total_outbound_capacity_msat,
             &channels,
             &peers,
-            users.len(),
         )
         .into_string(),
     )
@@ -432,7 +441,7 @@ fn disconnect_peer_form(counterparty_node_id: &str, error: Option<&str>) -> Mark
             }
 
             input type="hidden" name="counterparty_node_id" value=(counterparty_node_id) {}
-            button type="submit" class="btn btn-outline-danger btn-sm" {
+            button type="submit" class="btn btn-outline-danger w-100" {
                 "Disconnect"
             }
         }
@@ -464,8 +473,8 @@ fn close_channel_form(
                 }
             }
 
-            button type="submit" class="btn btn-outline-danger btn-sm w-100" {
-                "Confirm"
+            button type="submit" class="btn btn-outline-danger w-100" {
+                "Close"
             }
         }
     }
@@ -629,7 +638,7 @@ pub async fn request_channel_submit(
     match try_request_channel(&state, &form).await {
         Ok(invoice) => {
             let html = success_replacement(
-                "Channel Requested!",
+                "Channel Requested",
                 "Pay this Lightning invoice to open the channel:",
                 qr_code_with_copy(&invoice),
             );

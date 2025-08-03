@@ -63,7 +63,6 @@ pub fn base_template(
     current_path: &str,
     content: Markup,
     action_sidebar: Markup,
-    user_count: usize,
 ) -> Markup {
     html! {
         (DOCTYPE)
@@ -101,24 +100,17 @@ pub fn base_template(
                             }
                         }
 
-                        span class="navbar-text" {
-                            @if user_count == 0 {
-                                span class="text-light" { "No users yet. Use the sidebar to invite your first user." }
-                            } @else {
-                                span class="text-light" { "Number of Users: " { (user_count) } }
-                            }
-                        }
                     }
                 }
                 div class="container-fluid" {
                     div class="row" {
                         main class="col-lg-9 px-md-4" {
-                            div class="pt-3" {
+                            div class="pt-md-4 pb-md-4" {
                                 (content)
                             }
                         }
                         aside class="col-lg-3 px-md-4 action-sidebar" {
-                            div class="pt-3" {
+                            div class="pt-md-4 pb-md-4" {
                                 (action_sidebar)
                             }
                         }
@@ -145,7 +137,7 @@ pub fn parse_socket_address(address_str: &str) -> Result<SocketAddress, String> 
 // Helper for success responses that replace forms (like QR codes)
 pub fn success_replacement(title: &str, message: &str, content: Markup) -> Markup {
     html! {
-        h6 class="mt-3 mb-2" { (title) }
+        h6 class="mb-2" { (title) }
         p class="mb-3 text-muted" { (message) }
         (content)
     }
