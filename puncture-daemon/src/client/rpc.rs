@@ -2,6 +2,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use bitcoin::hashes::Hash;
+use diesel::SqliteConnection;
 use lightning::offers::offer::Offer;
 use lightning_invoice::{Bolt11InvoiceDescription, Description};
 use tracing::{error, info};
@@ -14,14 +15,16 @@ use puncture_client_core::{
 use puncture_core::unix_time;
 
 use super::db;
-use crate::{AppState, convert::IntoPayment};
+use crate::{AppState, Args, EventBus, convert::IntoPayment};
 
 pub async fn register(
     app_state: Arc<AppState>,
     user_pk: String,
     request: RegisterRequest,
 ) -> Result<RegisterResponse, String> {
-    let invite = db::get_invite(&app_state.db, &request.invite_id)
+    let mut conn = app_state.db.get_connection().await;
+
+    let invite = db::get_invite(&mut conn, &request.invite_id)
         .await
         .ok_or("Unknown invite code".to_string())?;
 
@@ -33,11 +36,11 @@ pub async fn register(
         return Err("Invite expired".to_string());
     }
 
-    if invite.user_limit <= db::count_invite_users(&app_state.db, &request.invite_id).await {
+    if invite.user_limit <= db::count_invite_users(&mut conn, &request.invite_id).await {
         return Err("Invite user limit reached".to_string());
     }
 
-    db::register_user_with_invite(&app_state.db, user_pk.clone(), request.invite_id.clone()).await;
+    db::register_user_with_invite(&mut conn, user_pk.clone(), request.invite_id.clone()).await;
 
     info!(?user_pk, ?request.invite_id, "New user registered");
 
@@ -65,13 +68,15 @@ pub async fn bolt11_receive(
 ) -> Result<Bolt11ReceiveResponse, String> {
     info!(?request, "bolt11 receive");
 
-    let pending = db::count_pending_invoices(&state.db, user_pk.clone()).await;
+    let mut conn = state.db.get_connection().await;
+
+    let pending = db::count_pending_invoices(&mut conn, user_pk.clone()).await;
 
     if pending >= state.args.max_pending_payments_per_user as i64 {
         return Err("Too many pending invoices".to_string());
     }
 
-    check_amount_bounds(state.clone(), request.amount_msat as u64)?;
+    check_amount_bounds(&state.args, request.amount_msat as u64)?;
 
     let invoice = state
         .node
@@ -87,7 +92,7 @@ pub async fn bolt11_receive(
         .map_err(|_| "Failed to create invoice".to_string())?;
 
     db::create_invoice(
-        &state.db,
+        &mut conn,
         user_pk,
         invoice.clone(),
         request.amount_msat.into(),
@@ -104,7 +109,9 @@ pub async fn bolt12_receive_variable_amount(
     user_pk: String,
     _request: (),
 ) -> Result<Bolt12ReceiveResponse, String> {
-    if let Some(record) = db::get_offer_by_user_pk(&state.db, user_pk.clone()).await {
+    let mut conn = state.db.get_connection().await;
+
+    if let Some(record) = db::get_offer_by_user_pk(&mut conn, user_pk.clone()).await {
         if record.created_at > unix_time() - (24 * 60 * 60 * 1000) {
             return Ok(Bolt12ReceiveResponse { offer: record.pr });
         }
@@ -117,7 +124,7 @@ pub async fn bolt12_receive_variable_amount(
         .map_err(|_| "Failed to create offer".to_string())?;
 
     db::create_offer(
-        &state.db,
+        &mut conn,
         user_pk.clone(),
         offer.clone(),
         None,
@@ -137,11 +144,11 @@ pub async fn bolt11_send(
     user_pk: String,
     request: Bolt11SendRequest,
 ) -> Result<(), String> {
-    let send_lock = state.send_lock.lock().await;
+    let mut conn = state.db.get_connection().await;
 
-    let fee_msat = check_send_request(state.clone(), user_pk.clone(), request.amount_msat).await?;
+    let fee_msat = check_send(&mut conn, user_pk.clone(), request.amount_msat, &state.args).await?;
 
-    match crate::db::get_invoice(&state.db, request.invoice.payment_hash().to_byte_array()).await {
+    match crate::db::get_invoice(&mut conn, request.invoice.payment_hash().to_byte_array()).await {
         Some(invoice) => {
             if invoice.user_pk == user_pk {
                 return Err("This is your own invoice".to_string());
@@ -154,7 +161,7 @@ pub async fn bolt11_send(
             }
 
             let (send_record, receive_record) = db::create_internal_transfer(
-                &state.db,
+                &mut conn,
                 user_pk.clone(),
                 invoice.user_pk.clone(),
                 request.amount_msat as i64,
@@ -165,14 +172,16 @@ pub async fn bolt11_send(
             .await;
 
             push_events(
-                state.clone(),
+                &mut conn,
+                state.event_bus.clone(),
                 user_pk.clone(),
                 send_record.into_payment(true),
             )
             .await;
 
             push_events(
-                state.clone(),
+                &mut conn,
+                state.event_bus.clone(),
                 invoice.user_pk.clone(),
                 receive_record.into_payment(true),
             )
@@ -186,7 +195,7 @@ pub async fn bolt11_send(
                 .map_err(|e| e.to_string())?;
 
             let record = db::create_send_payment(
-                &state.db,
+                &mut conn,
                 payment_id.0,
                 user_pk.clone(),
                 request.amount_msat as i64,
@@ -198,11 +207,15 @@ pub async fn bolt11_send(
             )
             .await;
 
-            push_events(state.clone(), user_pk, record.into_payment(true)).await;
+            push_events(
+                &mut conn,
+                state.event_bus.clone(),
+                user_pk,
+                record.into_payment(true),
+            )
+            .await;
         }
     };
-
-    drop(send_lock);
 
     Ok(())
 }
@@ -213,13 +226,13 @@ pub async fn bolt12_send(
     user_pk: String,
     request: Bolt12SendRequest,
 ) -> Result<(), String> {
-    let send_lock = state.send_lock.lock().await;
+    let mut conn = state.db.get_connection().await;
 
-    let fee_msat = check_send_request(state.clone(), user_pk.clone(), request.amount_msat).await?;
+    let fee_msat = check_send(&mut conn, user_pk.clone(), request.amount_msat, &state.args).await?;
 
     let offer = Offer::from_str(&request.offer).map_err(|_| "Invalid offer".to_string())?;
 
-    match crate::db::get_offer(&state.db, offer.id().0).await {
+    match crate::db::get_offer(&mut conn, offer.id().0).await {
         Some(offer) => {
             if offer.user_pk == user_pk {
                 return Err("This is your own payment request".to_string());
@@ -232,7 +245,7 @@ pub async fn bolt12_send(
             }
 
             let (send_record, receive_record) = db::create_internal_transfer(
-                &state.db,
+                &mut conn,
                 user_pk.clone(),
                 offer.user_pk.clone(),
                 request.amount_msat as i64,
@@ -243,14 +256,16 @@ pub async fn bolt12_send(
             .await;
 
             push_events(
-                state.clone(),
+                &mut conn,
+                state.event_bus.clone(),
                 user_pk.clone(),
                 send_record.into_payment(true),
             )
             .await;
 
             push_events(
-                state.clone(),
+                &mut conn,
+                state.event_bus.clone(),
                 offer.user_pk.clone(),
                 receive_record.into_payment(true),
             )
@@ -264,7 +279,7 @@ pub async fn bolt12_send(
                 .map_err(|e| e.to_string())?;
 
             let send_record = db::create_send_payment(
-                &state.db,
+                &mut conn,
                 payment_id.0,
                 user_pk.clone(),
                 request.amount_msat as i64,
@@ -276,31 +291,36 @@ pub async fn bolt12_send(
             )
             .await;
 
-            push_events(state.clone(), user_pk, send_record.into_payment(true)).await;
+            push_events(
+                &mut conn,
+                state.event_bus.clone(),
+                user_pk,
+                send_record.into_payment(true),
+            )
+            .await;
         }
     };
-
-    drop(send_lock);
 
     Ok(())
 }
 
-async fn check_send_request(
-    state: Arc<AppState>,
+async fn check_send(
+    conn: &mut SqliteConnection,
     user_pk: String,
     amount_msat: u64,
+    args: &Args,
 ) -> Result<u64, String> {
-    let pending_payments = db::count_pending_sends(&state.db, user_pk.clone()).await;
+    let pending_payments = db::count_pending_sends(conn, user_pk.clone()).await;
 
-    if pending_payments >= state.args.max_pending_payments_per_user as i64 {
+    if pending_payments >= args.max_pending_payments_per_user as i64 {
         return Err("Too many pending payments".to_string());
     }
 
-    check_amount_bounds(state.clone(), amount_msat)?;
+    check_amount_bounds(args, amount_msat)?;
 
-    let fee_msat = (amount_msat * state.args.fee_ppm) / 1_000_000 + state.args.base_fee_msat;
+    let fee_msat = (amount_msat * args.fee_ppm) / 1_000_000 + args.base_fee_msat;
 
-    let balance_msat = crate::db::user_balance(&state.db, user_pk.clone()).await;
+    let balance_msat = crate::db::user_balance(conn, user_pk.clone()).await;
 
     if balance_msat < amount_msat + fee_msat {
         return Err("Insufficient balance".to_string());
@@ -309,18 +329,18 @@ async fn check_send_request(
     Ok(fee_msat)
 }
 
-fn check_amount_bounds(state: Arc<AppState>, amount_msat: u64) -> Result<(), String> {
-    if amount_msat < state.args.min_amount_sats as u64 * 1000 {
+fn check_amount_bounds(args: &Args, amount_msat: u64) -> Result<(), String> {
+    if amount_msat < args.min_amount_sats as u64 * 1000 {
         return Err(format!(
             "The minimum amount is {} sats",
-            state.args.min_amount_sats
+            args.min_amount_sats
         ));
     }
 
-    if amount_msat > state.args.max_amount_sats as u64 * 1000 {
+    if amount_msat > args.max_amount_sats as u64 * 1000 {
         return Err(format!(
             "The maximum amount is {} sats",
-            state.args.max_amount_sats
+            args.max_amount_sats
         ));
     }
 
@@ -328,17 +348,16 @@ fn check_amount_bounds(state: Arc<AppState>, amount_msat: u64) -> Result<(), Str
 }
 
 async fn push_events(
-    state: Arc<AppState>,
+    conn: &mut SqliteConnection,
+    event_bus: EventBus,
     user_pk: String,
     payment: puncture_client_core::Payment,
 ) {
-    let balance_msat = crate::db::user_balance(&state.db, user_pk.clone()).await;
+    let balance_msat = crate::db::user_balance(conn, user_pk.clone()).await;
 
-    state
-        .event_bus
-        .send_balance_event(user_pk.clone(), balance_msat);
+    event_bus.send_balance_event(user_pk.clone(), balance_msat);
 
-    state.event_bus.send_payment_event(user_pk, payment);
+    event_bus.send_payment_event(user_pk, payment);
 }
 
 pub async fn set_recovery_name(
@@ -363,7 +382,9 @@ pub async fn set_recovery_name(
         }
     }
 
-    db::set_recovery_name(&state.db, user_pk, request.recovery_name).await;
+    let mut conn = state.db.get_connection().await;
+
+    db::set_recovery_name(&mut conn, user_pk, request.recovery_name).await;
 
     Ok(())
 }
@@ -373,7 +394,9 @@ pub async fn recover(
     user_pk: String,
     request: RecoverRequest,
 ) -> Result<RecoverResponse, String> {
-    let recovery = db::get_recovery(&app_state.db, &request.recovery_id)
+    let mut conn = app_state.db.get_connection().await;
+
+    let recovery = db::get_recovery(&mut conn, &request.recovery_id)
         .await
         .ok_or("Unknown recovery code".to_string())?;
 
@@ -385,16 +408,14 @@ pub async fn recover(
         return Err("You cannot recover the current user".to_string());
     }
 
-    let send_lock = app_state.send_lock.lock().await;
-
-    let balance_msat = crate::db::user_balance(&app_state.db, recovery.user_pk.clone()).await;
+    let balance_msat = crate::db::user_balance(&mut conn, recovery.user_pk.clone()).await;
 
     if balance_msat == 0 {
         return Err("User has no balance to recover".to_string());
     }
 
     let (send_record, receive_record) = db::create_internal_transfer(
-        &app_state.db,
+        &mut conn,
         recovery.user_pk.clone(),
         user_pk.clone(),
         balance_msat as i64,
@@ -404,17 +425,17 @@ pub async fn recover(
     )
     .await;
 
-    drop(send_lock);
-
     push_events(
-        app_state.clone(),
+        &mut conn,
+        app_state.event_bus.clone(),
         recovery.user_pk.clone(),
         send_record.into_payment(true),
     )
     .await;
 
     push_events(
-        app_state.clone(),
+        &mut conn,
+        app_state.event_bus.clone(),
         user_pk.clone(),
         receive_record.into_payment(true),
     )

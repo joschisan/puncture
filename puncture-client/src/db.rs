@@ -1,11 +1,15 @@
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SqliteConnection};
 
 use puncture_client_core::RegisterResponse;
 use puncture_client_db::models::DaemonRecord;
 use puncture_client_db::schema::daemon;
-use puncture_core::{db::Database, unix_time};
+use puncture_core::unix_time;
 
-pub async fn save_daemon(db: &Database, node_id: iroh::NodeId, config: RegisterResponse) {
+pub async fn save_daemon(
+    conn: &mut SqliteConnection,
+    node_id: iroh::NodeId,
+    config: RegisterResponse,
+) {
     diesel::insert_or_ignore_into(daemon::table)
         .values(&DaemonRecord {
             node_id: node_id.to_string(),
@@ -13,18 +17,18 @@ pub async fn save_daemon(db: &Database, node_id: iroh::NodeId, config: RegisterR
             name: config.name,
             created_at: unix_time(),
         })
-        .execute(&mut db.get_connection().await)
+        .execute(conn)
         .expect("Failed to save daemon");
 }
 
-pub async fn list_daemons(db: &Database) -> Vec<DaemonRecord> {
+pub async fn list_daemons(conn: &mut SqliteConnection) -> Vec<DaemonRecord> {
     daemon::dsl::daemon
-        .load::<DaemonRecord>(&mut db.get_connection().await)
+        .load::<DaemonRecord>(conn)
         .expect("Failed to load daemons")
 }
 
-pub async fn delete_daemon(db: &Database, node_id: iroh::NodeId) {
+pub async fn delete_daemon(conn: &mut SqliteConnection, node_id: iroh::NodeId) {
     diesel::delete(daemon::table.filter(daemon::node_id.eq(node_id.to_string())))
-        .execute(&mut db.get_connection().await)
+        .execute(conn)
         .expect("Failed to remove daemon");
 }

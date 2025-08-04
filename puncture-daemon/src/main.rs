@@ -132,7 +132,6 @@ struct AppState {
     db: Database,
     node: Arc<Node>,
     event_bus: EventBus,
-    send_lock: Arc<tokio::sync::Mutex<()>>,
     node_id: iroh::NodeId,
 }
 
@@ -266,7 +265,6 @@ fn main() -> Result<()> {
         db: db.clone(),
         node: node.clone(),
         event_bus: event_bus.clone(),
-        send_lock: Arc::new(tokio::sync::Mutex::new(())),
         node_id: endpoint.node_id(),
     };
 
@@ -354,16 +352,18 @@ async fn process_ldk_event(
             amount_msat,
             ..
         } => {
+            let mut conn = db.get_connection().await;
+
             let record = match node
                 .payment(&payment_id.unwrap())
                 .context("Payment not found")?
                 .kind
             {
-                PaymentKind::Bolt11 { hash, .. } => db::get_invoice(&db, hash.0)
+                PaymentKind::Bolt11 { hash, .. } => db::get_invoice(&mut conn, hash.0)
                     .await
                     .context("Invoice not found")?
                     .into_receive_record(payment_id.unwrap().0, amount_msat),
-                PaymentKind::Bolt12Offer { offer_id, .. } => db::get_offer(&db, offer_id.0)
+                PaymentKind::Bolt12Offer { offer_id, .. } => db::get_offer(&mut conn, offer_id.0)
                     .await
                     .context("Offer not found")?
                     .into_receive_record(payment_id.unwrap().0, amount_msat),
@@ -374,9 +374,9 @@ async fn process_ldk_event(
 
             assert_eq!(record.amount_msat as u64, amount_msat);
 
-            db::create_receive_payment(&db, record.clone()).await;
+            db::create_receive_payment(&mut conn, record.clone()).await;
 
-            let balance_msat = db::user_balance(&db, record.user_pk.clone()).await;
+            let balance_msat = db::user_balance(&mut conn, record.user_pk.clone()).await;
 
             event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
 
@@ -385,7 +385,9 @@ async fn process_ldk_event(
             Ok(())
         }
         Event::PaymentSuccessful { payment_id, .. } => {
-            let record = db::update_send_status(&db, payment_id.unwrap().0, "successful")
+            let mut conn = db.get_connection().await;
+
+            let record = db::update_send_status(&mut conn, payment_id.unwrap().0, "successful")
                 .await
                 .context("successful payment not found")?;
 
@@ -400,15 +402,17 @@ async fn process_ldk_event(
         Event::PaymentFailed {
             payment_id, reason, ..
         } => {
-            let record = db::update_send_status(&db, payment_id.unwrap().0, "failed")
+            let mut conn = db.get_connection().await;
+
+            let record = db::update_send_status(&mut conn, payment_id.unwrap().0, "failed")
                 .await
                 .context("failed payment not found")?;
+
+            let balance_msat = db::user_balance(&mut conn, record.user_pk.clone()).await;
 
             let latency_ms = unix_time().saturating_sub(record.created_at);
 
             warn!(?record.user_pk, ?latency_ms, ?reason, "payment failed");
-
-            let balance_msat = db::user_balance(&db, record.user_pk.clone()).await;
 
             event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
 

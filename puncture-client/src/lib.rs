@@ -69,7 +69,12 @@ impl PunctureClient {
         .await
         .map_err(|_| "Failed to register".to_string())??;
 
-        db::save_daemon(&self.db, invite.node_id(), response).await;
+        db::save_daemon(
+            &mut *self.db.get_connection().await,
+            invite.node_id(),
+            response,
+        )
+        .await;
 
         Ok(PunctureConnection::new(
             self.endpoint.clone(),
@@ -78,7 +83,7 @@ impl PunctureClient {
     }
 
     pub async fn list_daemons(&self) -> Vec<Daemon> {
-        db::list_daemons(&self.db)
+        db::list_daemons(&mut *self.db.get_connection().await)
             .await
             .into_iter()
             .map(|daemon| Daemon {
@@ -90,7 +95,7 @@ impl PunctureClient {
     }
 
     pub async fn delete_daemon(&self, daemon: Daemon) {
-        db::delete_daemon(&self.db, daemon.node_id).await;
+        db::delete_daemon(&mut *self.db.get_connection().await, daemon.node_id).await;
     }
 
     pub async fn user_pk(&self) -> String {

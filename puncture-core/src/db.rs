@@ -1,38 +1,32 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use anyhow::{Context, Result};
-use diesel::r2d2::PooledConnection;
-use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::Connection;
 use diesel::sqlite::SqliteConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
+use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct Database {
-    pool: Pool<ConnectionManager<SqliteConnection>>,
+    conn: Arc<Mutex<SqliteConnection>>,
 }
 
 impl Database {
-    pub fn new(data_dir: &Path, migrations: EmbeddedMigrations, max_size: u32) -> Result<Self> {
+    pub fn new(data_dir: &Path, migrations: EmbeddedMigrations, _max_size: u32) -> Result<Self> {
         let file_path = data_dir.join("puncture_data.sqlite").display().to_string();
 
-        let pool = Pool::builder()
-            .max_size(max_size)
-            .build(ConnectionManager::<SqliteConnection>::new(&file_path))
-            .context("Error creating connection pool")?;
-
-        let mut conn = pool.get().expect("Failed to get connection for migrations");
+        let mut conn = SqliteConnection::establish(&file_path)
+            .context("Error establishing connection to database")?;
 
         conn.run_pending_migrations(migrations)
             .map_err(|e| anyhow::anyhow!("Database migration failed: {}", e))?;
 
-        Ok(Database { pool })
+        Ok(Database {
+            conn: Arc::new(Mutex::new(conn)),
+        })
     }
 
-    pub async fn get_connection(&self) -> PooledConnection<ConnectionManager<SqliteConnection>> {
-        let pool = self.pool.clone();
-
-        tokio::task::spawn_blocking(move || pool.get().expect("Failed to get connection from pool"))
-            .await
-            .expect("Failed to join task")
+    pub async fn get_connection(&self) -> tokio::sync::MutexGuard<'_, SqliteConnection> {
+        self.conn.lock().await
     }
 }

@@ -348,8 +348,10 @@ pub async fn user_invite(
 ) -> Result<Json<InviteResponse>, CliError> {
     let invite_id = rand::rng().random();
 
+    let mut conn = state.db.get_connection().await;
+
     db::create_invite(
-        &state.db,
+        &mut conn,
         &invite_id,
         request.user_limit,
         request.expiry_days * 60 * 60 * 24,
@@ -366,13 +368,15 @@ pub async fn user_recover(
     State(state): State<AppState>,
     Json(request): Json<RecoverRequest>,
 ) -> Result<Json<RecoverResponse>, CliError> {
-    if !db::user_exists(&state.db, request.user_pk.clone()).await {
+    let mut conn = state.db.get_connection().await;
+
+    if !db::user_exists(&mut conn, request.user_pk.clone()).await {
         return Err(CliError::bad_request("User does not exist"));
     }
 
     let recovery_id = rand::rng().random();
 
-    db::create_recovery(&state.db, &recovery_id, &request.user_pk, 60 * 60 * 24).await;
+    db::create_recovery(&mut conn, &recovery_id, &request.user_pk, 60 * 60 * 24).await;
 
     Ok(Json(RecoverResponse {
         recovery: PunctureCode::recovery(recovery_id).encode(),
@@ -381,6 +385,6 @@ pub async fn user_recover(
 
 pub async fn user_list(State(state): State<AppState>) -> Result<Json<ListUsersResponse>, CliError> {
     Ok(Json(ListUsersResponse {
-        users: db::list_users(&state.db).await,
+        users: db::list_users(&mut *state.db.get_connection().await).await,
     }))
 }

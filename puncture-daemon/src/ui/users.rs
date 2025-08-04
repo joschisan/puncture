@@ -11,7 +11,7 @@ use super::shared::{
 use crate::AppState;
 
 pub async fn users_page(State(state): State<AppState>) -> Html<String> {
-    let users = super::db::list_users(&state.db).await;
+    let users = super::db::list_users(&mut *state.db.get_connection().await).await;
 
     // Filter to only users with recovery names and sort by recovery_name
     let mut filtered_users: Vec<_> = users
@@ -166,8 +166,10 @@ pub async fn invite_submit(
 ) -> Html<String> {
     let invite_id = rand::rng().random();
 
+    let mut conn = state.db.get_connection().await;
+
     super::db::create_invite(
-        &state.db,
+        &mut conn,
         &invite_id,
         form.user_limit,
         form.expiry_days * 24 * 60 * 60,
@@ -190,7 +192,9 @@ pub async fn recovery_submit(
     Form(form): Form<RecoveryForm>,
 ) -> Html<String> {
     // Validate user exists
-    if !super::db::user_exists(&state.db, form.user_pk.clone()).await {
+    let mut conn = state.db.get_connection().await;
+
+    if !super::db::user_exists(&mut conn, form.user_pk.clone()).await {
         let html = html! {
             div class="alert alert-danger" { "Unknown public key" }
         };
@@ -201,7 +205,7 @@ pub async fn recovery_submit(
     let recovery_id = rand::rng().random();
 
     super::db::create_recovery(
-        &state.db,
+        &mut conn,
         &recovery_id,
         &form.user_pk,
         24 * 60 * 60, // 1 day

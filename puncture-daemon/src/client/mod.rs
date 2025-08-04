@@ -155,7 +155,13 @@ async fn handle_request(
 
     let request: ClientRpcRequest<Value> = serde_json::from_slice(&request)?;
 
-    let response = if db::user_exists(&state.db, user_id.clone()).await {
+    let mut conn = state.db.get_connection().await;
+
+    let user_exists = db::user_exists(&mut conn, user_id.clone()).await;
+
+    drop(conn);
+
+    let response = if user_exists {
         match request.method.as_str() {
             "register" => method!(register, state, user_id, request.request),
             "fees" => method!(fees, state, user_id, request.request),
@@ -197,13 +203,13 @@ pub async fn events(
 ) -> impl Stream<Item = Result<AppEvent, String>> + Send + 'static {
     let stream = state.event_bus.clone().subscribe_to_events(user_pk.clone());
 
-    let balance = Balance {
-        amount_msat: crate::db::user_balance(&state.db, user_pk.clone()).await,
-    };
+    let mut conn = state.db.get_connection().await;
 
-    let balance_event = AppEvent::Balance(balance.clone());
+    let amount_msat = crate::db::user_balance(&mut conn, user_pk.clone()).await;
 
-    let payments = db::user_payments(&state.db, user_pk.clone()).await;
+    let balance_event = AppEvent::Balance(Balance { amount_msat });
+
+    let payments = db::user_payments(&mut conn, user_pk.clone()).await;
 
     let payment_events = payments
         .into_iter()
