@@ -515,8 +515,6 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
 
     println!("Testing user recovery was successful!");
 
-    sleep(Duration::from_secs(1000));
-
     Ok(())
 }
 
