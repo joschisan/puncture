@@ -32,7 +32,7 @@ impl EventBus {
         self.tx.send((user_id, AppEvent::Payment(payment))).ok();
     }
 
-    pub fn send_update_event(&self, user_id: String, id: String, status: &str) {
+    pub fn send_update_event(&self, user_id: String, id: String, status: &str, fee_msat: i64) {
         trace!(?user_id, ?id, ?status, "Update event");
 
         self.tx
@@ -41,6 +41,7 @@ impl EventBus {
                 AppEvent::Update(Update {
                     id,
                     status: status.to_string(),
+                    fee_msat,
                 }),
             ))
             .ok();

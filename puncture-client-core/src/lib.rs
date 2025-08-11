@@ -43,6 +43,8 @@ pub struct Update {
     pub id: String,
     /// The new status of the payment
     pub status: String,
+    /// The fee paid in millisatoshis
+    pub fee_msat: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -165,7 +165,7 @@ pub async fn bolt11_send(
                 user_pk.clone(),
                 invoice.user_pk.clone(),
                 request.amount_msat as i64,
-                fee_msat as i64,
+                1000,
                 invoice.pr.clone(),
                 invoice.description.clone(),
             )
@@ -249,7 +249,7 @@ pub async fn bolt12_send(
                 user_pk.clone(),
                 offer.user_pk.clone(),
                 request.amount_msat as i64,
-                fee_msat as i64,
+                1000,
                 offer.pr.clone(),
                 offer.description.clone(),
             )
@@ -318,12 +318,16 @@ async fn check_send(
 
     check_amount_bounds(args, amount_msat)?;
 
-    let fee_msat = (amount_msat * args.fee_ppm) / 1_000_000 + args.base_fee_msat;
-
     let balance_msat = crate::db::user_balance(conn, user_pk.clone()).await;
 
+    if balance_msat < amount_msat {
+        return Err("Insufficient balance to cover the amount".to_string());
+    }
+
+    let fee_msat = (amount_msat * args.fee_ppm) / 1_000_000 + args.base_fee_msat;
+
     if balance_msat < amount_msat + fee_msat {
-        return Err("Insufficient balance".to_string());
+        return Err("Insufficient balance to cover the amount and potential fee".to_string());
     }
 
     Ok(fee_msat)

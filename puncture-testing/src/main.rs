@@ -179,17 +179,11 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_a.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 445_000
+            amount_msat: 499_000
         })
     );
 
-    assert_payment(
-        connection_a.next_event().await,
-        500_000,
-        55_000,
-        "successful",
-    )
-    .await;
+    assert_payment(connection_a.next_event().await, 500_000, 1000, "successful").await;
 
     assert_eq!(
         connection_b.next_event().await,
@@ -222,17 +216,25 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 349_000
+            amount_msat: 389_500
         })
     );
 
-    let payment = assert_payment(connection_b.next_event().await, 100_000, 51_000, "pending").await;
+    let payment = assert_payment(connection_b.next_event().await, 100_000, 10_500, "pending").await;
+
+    assert_eq!(
+        connection_b.next_event().await,
+        AppEvent::Balance(Balance {
+            amount_msat: 400_000
+        })
+    );
 
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Update(Update {
             id: payment.id,
-            status: "successful".to_string()
+            status: "successful".to_string(),
+            fee_msat: 0
         })
     );
 
@@ -254,11 +256,11 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 198_000
+            amount_msat: 289_500
         })
     );
 
-    let payment = assert_payment(connection_b.next_event().await, 100_000, 51_000, "pending").await;
+    let payment = assert_payment(connection_b.next_event().await, 100_000, 10_500, "pending").await;
 
     sleep(Duration::from_secs(1));
 
@@ -267,7 +269,7 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 349_000
+            amount_msat: 400_000
         })
     );
 
@@ -275,7 +277,8 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
         connection_b.next_event().await,
         AppEvent::Update(Update {
             id: payment.id,
-            status: "failed".to_string()
+            status: "failed".to_string(),
+            fee_msat: 0
         })
     );
 
@@ -285,38 +288,26 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_a.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 445_000
+            amount_msat: 499_000
         })
     );
 
     assert_payment(connection_a.next_event().await, 1_000_000, 0, "successful").await;
 
-    assert_payment(
-        connection_a.next_event().await,
-        500_000,
-        55_000,
-        "successful",
-    )
-    .await;
+    assert_payment(connection_a.next_event().await, 500_000, 1000, "successful").await;
 
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 349_000
+            amount_msat: 400_000
         })
     );
 
     assert_payment(connection_b.next_event().await, 500_000, 0, "successful").await;
 
-    assert_payment(
-        connection_b.next_event().await,
-        100_000,
-        51_000,
-        "successful",
-    )
-    .await;
+    assert_payment(connection_b.next_event().await, 100_000, 0, "successful").await;
 
-    assert_payment(connection_b.next_event().await, 100_000, 51_000, "failed").await;
+    assert_payment(connection_b.next_event().await, 100_000, 0, "failed").await;
 
     let invoice = connection_a
         .bolt11_receive(100_000, String::new())
@@ -331,7 +322,7 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_a.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 545_000
+            amount_msat: 599_000
         })
     );
 
@@ -340,17 +331,11 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 198_000
+            amount_msat: 299_000
         })
     );
 
-    assert_payment(
-        connection_b.next_event().await,
-        100_000,
-        51_000,
-        "successful",
-    )
-    .await;
+    assert_payment(connection_b.next_event().await, 100_000, 1000, "successful").await;
 
     println!("Testing Bolt11 was successful!");
 
@@ -359,6 +344,7 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     node.bolt12_payment()
         .send_using_amount(&Offer::from_str(&offer).unwrap(), 100_000, None, None)
         .unwrap();
+
     node.bolt12_payment()
         .send_using_amount(&Offer::from_str(&offer).unwrap(), 100_000, None, None)
         .unwrap();
@@ -366,7 +352,7 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_a.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 645_000
+            amount_msat: 699_000
         })
     );
 
@@ -375,7 +361,7 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_a.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 745_000
+            amount_msat: 799_000
         })
     );
 
@@ -391,22 +377,16 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_a.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 594_000
+            amount_msat: 698_000
         })
     );
 
-    assert_payment(
-        connection_a.next_event().await,
-        100_000,
-        51_000,
-        "successful",
-    )
-    .await;
+    assert_payment(connection_a.next_event().await, 100_000, 1000, "successful").await;
 
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 298_000
+            amount_msat: 399_000
         })
     );
 
@@ -422,17 +402,25 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 147_000
+            amount_msat: 288_500
         })
     );
 
-    let payment = assert_payment(connection_b.next_event().await, 100_000, 51_000, "pending").await;
+    let payment = assert_payment(connection_b.next_event().await, 100_000, 10_500, "pending").await;
+
+    assert_eq!(
+        connection_b.next_event().await,
+        AppEvent::Balance(Balance {
+            amount_msat: 299_000
+        })
+    );
 
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Update(Update {
             id: payment.id,
-            status: "successful".to_string()
+            status: "successful".to_string(),
+            fee_msat: 0
         })
     );
 
@@ -446,17 +434,25 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 46_500
+            amount_msat: 238_750
         })
     );
 
-    let payment = assert_payment(connection_b.next_event().await, 50_000, 50_500, "pending").await;
+    let payment = assert_payment(connection_b.next_event().await, 50_000, 10_250, "pending").await;
+
+    assert_eq!(
+        connection_b.next_event().await,
+        AppEvent::Balance(Balance {
+            amount_msat: 249_000
+        })
+    );
 
     assert_eq!(
         connection_b.next_event().await,
         AppEvent::Update(Update {
             id: payment.id,
-            status: "successful".to_string()
+            status: "successful".to_string(),
+            fee_msat: 0
         })
     );
 
@@ -497,12 +493,12 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
         AppEvent::Balance(Balance { amount_msat: 0 })
     );
 
-    assert_eq!(connection_c.recover(recovery).await.unwrap(), 594_000);
+    assert_eq!(connection_c.recover(recovery).await.unwrap(), 698_000);
 
     assert_eq!(
         connection_c.next_event().await,
         AppEvent::Balance(Balance {
-            amount_msat: 594_000
+            amount_msat: 698_000
         })
     );
 
@@ -530,10 +526,6 @@ pub fn start_daemon() -> Result<Child> {
         .arg("http://bitcoin:bitcoin@127.0.0.1:18443")
         .arg("--daemon-name")
         .arg("testing daemon")
-        .arg("--fee-ppm")
-        .arg("10000")
-        .arg("--base-fee-msat")
-        .arg("50000")
         .spawn()
         .context("Failed to start daemon")
 }

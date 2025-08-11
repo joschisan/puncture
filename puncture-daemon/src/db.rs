@@ -29,6 +29,7 @@ pub async fn update_send_status(
     conn: &mut SqliteConnection,
     id: [u8; 32],
     status: &str,
+    fee_paid_msat: i64,
 ) -> Option<SendRecord> {
     info!(id = ?id.as_hex(), ?status, "Updating send status");
 
@@ -38,6 +39,11 @@ pub async fn update_send_status(
         .set(send::status.eq(&status))
         .execute(conn)
         .expect("Failed to update payment status");
+
+    diesel::update(send::table.find(&id.as_hex().to_string()))
+        .set(send::fee_msat.eq(fee_paid_msat))
+        .execute(conn)
+        .expect("Failed to update fee paid");
 
     send::table
         .filter(send::id.eq(id.as_hex().to_string()))
@@ -74,7 +80,5 @@ pub async fn user_balance(conn: &mut SqliteConnection, user_pk: String) -> u64 {
         .map(|(amount, fee)| amount + fee)
         .sum();
 
-    (receive_sum as u64)
-        .checked_sub(send_sum as u64)
-        .expect("Balance is negative")
+    receive_sum.saturating_sub(send_sum) as u64
 }

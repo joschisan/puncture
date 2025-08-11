@@ -384,18 +384,36 @@ async fn process_ldk_event(
 
             Ok(())
         }
-        Event::PaymentSuccessful { payment_id, .. } => {
+        Event::PaymentSuccessful {
+            payment_id,
+            fee_paid_msat,
+            ..
+        } => {
             let mut conn = db.get_connection().await;
 
-            let record = db::update_send_status(&mut conn, payment_id.unwrap().0, "successful")
-                .await
-                .context("successful payment not found")?;
+            let record = db::update_send_status(
+                &mut conn,
+                payment_id.unwrap().0,
+                "successful",
+                fee_paid_msat.unwrap() as i64,
+            )
+            .await
+            .context("successful payment not found")?;
+
+            let balance_msat = db::user_balance(&mut conn, record.user_pk.clone()).await;
 
             let latency_ms = unix_time().saturating_sub(record.created_at);
 
             info!(?record.user_pk, ?latency_ms, "payment successful");
 
-            event_bus.send_update_event(record.user_pk, record.id, "successful");
+            event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
+
+            event_bus.send_update_event(
+                record.user_pk,
+                record.id,
+                "successful",
+                fee_paid_msat.unwrap() as i64,
+            );
 
             Ok(())
         }
@@ -404,7 +422,7 @@ async fn process_ldk_event(
         } => {
             let mut conn = db.get_connection().await;
 
-            let record = db::update_send_status(&mut conn, payment_id.unwrap().0, "failed")
+            let record = db::update_send_status(&mut conn, payment_id.unwrap().0, "failed", 0)
                 .await
                 .context("failed payment not found")?;
 
@@ -416,7 +434,7 @@ async fn process_ldk_event(
 
             event_bus.send_balance_event(record.user_pk.clone(), balance_msat);
 
-            event_bus.send_update_event(record.user_pk, record.id, "failed");
+            event_bus.send_update_event(record.user_pk, record.id, "failed", 0);
 
             Ok(())
         }
