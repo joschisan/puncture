@@ -251,7 +251,7 @@ fn main() -> Result<()> {
         .secret_key(secret_key)
         .discovery_n0()
         .discovery_dht()
-        .alpns(vec![b"puncture-api".to_vec()]);
+        .alpns(vec![b"puncture".to_vec()]);
 
     let builder = match args.client_bind {
         SocketAddr::V4(addr_v4) => builder.bind_addr_v4(addr_v4),

@@ -17,8 +17,10 @@ use tracing::warn;
 
 use puncture_client_core::{
     AppEvent, Bolt11ReceiveRequest, Bolt11ReceiveResponse, Bolt11SendRequest,
-    Bolt12ReceiveResponse, Bolt12SendRequest, ClientRpcRequest, FeesResponse, RecoverRequest,
-    RecoverResponse, RegisterRequest, RegisterResponse, SetRecoveryNameRequest,
+    Bolt12ReceiveResponse, Bolt12SendRequest, ClientRpcRequest, ENDPOINT_BOLT11_RECEIVE,
+    ENDPOINT_BOLT11_SEND, ENDPOINT_BOLT12_RECEIVE, ENDPOINT_BOLT12_SEND, ENDPOINT_RECOVER,
+    ENDPOINT_REGISTER, ENDPOINT_SET_RECOVERY_NAME, RecoverRequest, RecoverResponse,
+    RegisterRequest, RegisterResponse, SetRecoveryNameRequest,
 };
 use puncture_core::db::Database;
 use puncture_core::{InviteCode, RecoveryCode, secret};
@@ -55,13 +57,13 @@ impl PunctureClient {
     pub async fn register(&self, invite: InviteCode) -> Result<PunctureConnection, String> {
         let connection = self
             .endpoint
-            .connect(invite.node_id(), b"puncture-api")
+            .connect(invite.node_id(), b"puncture")
             .await
             .map_err(|_| "Failed to connect".to_string())?;
 
         let response: RegisterResponse = request_json(
             connection,
-            "register",
+            ENDPOINT_REGISTER,
             RegisterRequest {
                 invite_id: invite.id(),
             },
@@ -164,7 +166,7 @@ impl PunctureConnection {
         description: String,
     ) -> Result<Bolt11Invoice, String> {
         self.request(
-            "bolt11_receive",
+            ENDPOINT_BOLT11_RECEIVE,
             Bolt11ReceiveRequest {
                 amount_msat,
                 description,
@@ -182,7 +184,7 @@ impl PunctureConnection {
         ln_address: Option<String>,
     ) -> Result<(), String> {
         self.request(
-            "bolt11_send",
+            ENDPOINT_BOLT11_SEND,
             Bolt11SendRequest {
                 invoice: invoice.clone(),
                 amount_msat,
@@ -193,8 +195,8 @@ impl PunctureConnection {
     }
 
     /// Create a amountless bolt12 offer for receiving payments
-    pub async fn bolt12_receive_variable_amount(&self) -> Result<String, String> {
-        self.request("bolt12_receive_variable_amount", ())
+    pub async fn bolt12_receive(&self) -> Result<String, String> {
+        self.request(ENDPOINT_BOLT12_RECEIVE, ())
             .await
             .map(|response: Bolt12ReceiveResponse| response.offer)
     }
@@ -202,18 +204,13 @@ impl PunctureConnection {
     /// Send a bolt12 payment
     pub async fn bolt12_send(&self, offer: Offer, amount_msat: u64) -> Result<(), String> {
         self.request(
-            "bolt12_send",
+            ENDPOINT_BOLT12_SEND,
             Bolt12SendRequest {
                 offer: offer.to_string(),
                 amount_msat,
             },
         )
         .await
-    }
-
-    /// Get the fees for a bolt11 payment
-    pub async fn fees(&self) -> Result<FeesResponse, String> {
-        self.request("fees", ()).await
     }
 
     /// Awaits the next event from the daemon
@@ -241,7 +238,7 @@ impl PunctureConnection {
     /// Set or clear the recovery name for this user
     pub async fn set_recovery_name(&self, recovery_name: Option<String>) -> Result<(), String> {
         self.request(
-            "set_recovery_name",
+            ENDPOINT_SET_RECOVERY_NAME,
             SetRecoveryNameRequest { recovery_name },
         )
         .await
@@ -250,7 +247,7 @@ impl PunctureConnection {
     /// Recover a balance from a recovery code
     pub async fn recover(&self, recovery_code: RecoveryCode) -> Result<u64, String> {
         self.request(
-            "recover",
+            ENDPOINT_RECOVER,
             RecoverRequest {
                 recovery_id: recovery_code.id(),
             },
@@ -269,7 +266,7 @@ async fn reconnect(
     let mut backoff = backoff_durations();
 
     loop {
-        match endpoint.connect(node_id, b"puncture-api").await {
+        match endpoint.connect(node_id, b"puncture").await {
             Ok(connection) => {
                 sender.send(Some(connection.clone())).ok();
 
