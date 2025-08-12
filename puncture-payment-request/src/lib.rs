@@ -54,6 +54,10 @@ pub enum PaymentRequestWithoutAmount {
 }
 
 pub fn parse_with_amount(request: String) -> Option<PaymentRequestWithAmount> {
+    if let Some(stripped) = request.strip_prefix("lightning:") {
+        return parse_with_amount(stripped.to_string());
+    }
+
     if let Ok(invoice) = Bolt11Invoice::from_str(&request) {
         if let Some(amount_msat) = invoice.amount_milli_satoshis() {
             return Some(PaymentRequestWithAmount::Bolt11(Bolt11PaymentRequest {
@@ -77,6 +81,14 @@ pub fn parse_with_amount(request: String) -> Option<PaymentRequestWithAmount> {
 }
 
 pub fn parse_without_amount(request: String) -> Option<PaymentRequestWithoutAmount> {
+    if let Some(stripped) = request.strip_prefix("lightning:") {
+        return parse_without_amount(stripped.to_string());
+    }
+
+    if let Some(stripped) = request.strip_prefix("lnurl:") {
+        return parse_without_amount(stripped.to_string());
+    }
+
     if let Ok(invoice) = Bolt11Invoice::from_str(&request) {
         if invoice.amount_milli_satoshis().is_none() {
             return Some(PaymentRequestWithoutAmount::Bolt11(invoice));
