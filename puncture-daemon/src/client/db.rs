@@ -257,6 +257,8 @@ pub async fn user_payments(
     // Load full ReceiveRecord records and convert using IntoPayment trait
     let receive_payments: Vec<puncture_client_core::Payment> = receive::table
         .filter(receive::user_pk.eq(user_pk.clone()))
+        .order(receive::created_at.desc())
+        .limit(50)
         .load::<ReceiveRecord>(conn)
         .unwrap_or_default()
         .into_iter()
@@ -266,17 +268,19 @@ pub async fn user_payments(
     // Load full SendRecord records and convert using IntoPayment trait
     let send_payments: Vec<puncture_client_core::Payment> = send::table
         .filter(send::user_pk.eq(user_pk))
+        .order(send::created_at.desc())
+        .limit(50)
         .load::<SendRecord>(conn)
         .unwrap_or_default()
         .into_iter()
         .map(|record| record.into_payment(false))
         .collect();
 
-    let mut all_payments = [receive_payments, send_payments].concat();
+    let mut payments = [receive_payments, send_payments].concat();
 
-    all_payments.sort_by_key(|payment| payment.created_at);
+    payments.sort_by_key(|payment| payment.created_at);
 
-    all_payments
+    payments.split_off(payments.len().saturating_sub(50))
 }
 
 pub async fn set_recovery_name(

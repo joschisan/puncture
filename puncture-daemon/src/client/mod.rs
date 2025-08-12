@@ -207,18 +207,15 @@ pub async fn events(
 
     let amount_msat = crate::db::user_balance(&mut conn, user_pk.clone()).await;
 
-    let balance_event = AppEvent::Balance(Balance { amount_msat });
+    let balance = Ok(AppEvent::Balance(Balance { amount_msat }));
 
-    let payments = db::user_payments(&mut conn, user_pk.clone()).await;
-
-    let payment_events = payments
+    let payments = db::user_payments(&mut conn, user_pk.clone())
+        .await
         .into_iter()
-        .rev()
-        .take(50)
-        .rev()
-        .map(AppEvent::Payment);
+        .map(AppEvent::Payment)
+        .map(Ok);
 
-    stream::once(future::ready(Ok(balance_event)))
-        .chain(stream::iter(payment_events.map(Ok)))
+    stream::once(future::ready(balance))
+        .chain(stream::iter(payments))
         .chain(stream)
 }
