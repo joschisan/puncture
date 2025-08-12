@@ -1,12 +1,17 @@
 use axum::{Form, extract::State, response::Html};
+use bitcoin::Txid;
+use bitcoin::{Address, address::NetworkUnchecked};
+use ldk_node::payment::{ConfirmationStatus, PaymentKind};
 use maud::{Markup, html};
 use serde::Deserialize;
 
-use super::shared::{base_template, format_sats, qr_code_with_copy, success_replacement};
+use super::shared::{
+    base_template, copyable_hex_input, format_sats, format_timestamp, qr_code_with_copy,
+    success_replacement,
+};
 use crate::AppState;
-use bitcoin::{Address, address::NetworkUnchecked};
 
-pub fn onchain_template(onchain_balance: u64) -> Markup {
+pub fn onchain_template(onchain_balance: u64, payments: Vec<(Txid, ConfirmationStatus)>) -> Markup {
     let content = html! {
         div class="row g-4" {
             div class="col-12" {
@@ -14,6 +19,81 @@ pub fn onchain_template(onchain_balance: u64) -> Markup {
                     div class="card-body" {
                         h5 class="card-title" { "Onchain Balance" }
                         p class="card-text display-6" { (format_sats(onchain_balance)) " ₿" }
+                    }
+                }
+            }
+
+            @if !payments.is_empty() {
+                div class="col-12" {
+                    div class="card h-100 overflow-hidden" {
+                        div class="card-body" {
+                            h5 class="card-title" { "Onchain Transactions" }
+                            div class="accordion" id="paymentsAccordion" {
+                                @for (i, (txid, status)) in payments.iter().enumerate() {
+                                    div class="accordion-item" {
+                                        h2 class="accordion-header" {
+                                            button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                                    data-bs-target={(format!("#payment-{}", i))} aria-expanded="false"
+                                                    aria-controls={(format!("payment-{}", i))} {
+                                                div class="d-flex align-items-center w-100 me-3" {
+                                                    div class="me-3 font-monospace small" {
+                                                        (txid.to_string()[..16]) "..."
+                                                    }
+                                                    @match status {
+                                                        ConfirmationStatus::Confirmed { .. } => {
+                                                            span class="badge bg-success ms-auto" { "Confirmed" }
+                                                        }
+                                                        ConfirmationStatus::Unconfirmed => {
+                                                            span class="badge bg-warning ms-auto" { "Pending" }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        div id={(format!("payment-{}", i))} class="accordion-collapse collapse" data-bs-parent="#paymentsAccordion" {
+                                            div class="accordion-body" {
+                                                table class="table table-sm table-borderless mb-3" {
+                                                    tbody {
+                                                        tr {
+                                                            td class="fw-bold" style="width: 1px; white-space: nowrap;" { "Transaction ID" }
+                                                            td style="width: 100%; min-width: 0;" {
+                                                                (copyable_hex_input(&txid.to_string(), None))
+                                                            }
+                                                        }
+                                                        @match status {
+                                                            ConfirmationStatus::Confirmed { block_hash, height, timestamp } => {
+                                                                tr {
+                                                                    td class="fw-bold" { "Block Height" }
+                                                                    td { (height) }
+                                                                }
+                                                                tr {
+                                                                    td class="fw-bold" { "Block Hash" }
+                                                                    td style="width: 100%; min-width: 0;" {
+                                                                        (copyable_hex_input(&block_hash.to_string(), None))
+                                                                    }
+                                                                }
+                                                                tr {
+                                                                    td class="fw-bold" { "Timestamp" }
+                                                                    td class="text-muted font-monospace" { (format_timestamp(*timestamp as i64 * 1000)) }
+                                                                }
+                                                            }
+                                                            ConfirmationStatus::Unconfirmed => {
+                                                                // No additional rows for unconfirmed transactions
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                div class="d-flex justify-content-end" {
+                                                    a href={(format!("https://mempool.space/tx/{}", txid))} target="_blank" class="btn btn-outline-primary btn-sm" {
+                                                        "mempool.space"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -134,7 +214,29 @@ pub struct OnchainDrainForm {
 }
 
 pub async fn onchain_page(State(state): State<AppState>) -> Html<String> {
-    let html = onchain_template(state.node.list_balances().total_onchain_balance_sats);
+    let balance = state.node.list_balances().total_onchain_balance_sats;
+
+    let mut payments = state
+        .node
+        .list_payments_with_filter(|payment| matches!(payment.kind, PaymentKind::Onchain { .. }))
+        .into_iter()
+        .filter_map(|payment| {
+            if let PaymentKind::Onchain { txid, status } = payment.kind {
+                Some((txid, status))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<(Txid, ConfirmationStatus)>>();
+
+    payments.sort_by_key(|(_, status)| match status {
+        ConfirmationStatus::Confirmed { height, .. } => *height,
+        ConfirmationStatus::Unconfirmed => u32::MAX,
+    });
+
+    payments.reverse();
+
+    let html = onchain_template(balance, payments);
 
     Html(html.into_string())
 }
