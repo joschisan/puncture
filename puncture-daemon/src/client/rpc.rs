@@ -9,8 +9,8 @@ use tracing::{error, info};
 
 use puncture_client_core::{
     Bolt11ReceiveRequest, Bolt11ReceiveResponse, Bolt11SendRequest, Bolt12ReceiveResponse,
-    Bolt12SendRequest, FeesResponse, RecoverRequest, RecoverResponse, RegisterRequest,
-    RegisterResponse, SetRecoveryNameRequest,
+    Bolt12SendRequest, RecoverRequest, RecoverResponse, RegisterRequest, RegisterResponse,
+    SetRecoveryNameRequest,
 };
 use puncture_core::unix_time;
 
@@ -47,17 +47,6 @@ pub async fn register(
     Ok(RegisterResponse {
         network: app_state.args.bitcoin_network,
         name: app_state.args.daemon_name.clone(),
-    })
-}
-
-pub async fn fees(
-    state: Arc<AppState>,
-    _user_pk: String,
-    _request: (),
-) -> Result<FeesResponse, String> {
-    Ok(FeesResponse {
-        fee_ppm: state.args.fee_ppm,
-        base_fee_msat: state.args.base_fee_msat,
     })
 }
 
@@ -104,7 +93,7 @@ pub async fn bolt11_receive(
     Ok(Bolt11ReceiveResponse { invoice })
 }
 
-pub async fn bolt12_receive_variable_amount(
+pub async fn bolt12_receive(
     state: Arc<AppState>,
     user_pk: String,
     _request: (),

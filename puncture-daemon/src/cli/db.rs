@@ -12,7 +12,7 @@ pub async fn create_invite(
     invite_id: &[u8; 16],
     user_limit: u32,
     expiry_secs: u32,
-) -> InviteRecord {
+) {
     let new_invite = InviteRecord {
         id: invite_id.as_hex().to_string(),
         user_limit: user_limit as i64,
@@ -24,8 +24,6 @@ pub async fn create_invite(
         .values(&new_invite)
         .execute(conn)
         .expect("Failed to create invite");
-
-    new_invite
 }
 
 pub async fn create_recovery(
@@ -33,7 +31,7 @@ pub async fn create_recovery(
     recovery_id: &[u8; 16],
     user_pk: &str,
     expiry_secs: u32,
-) -> RecoveryRecord {
+) {
     let new_recovery = RecoveryRecord {
         id: recovery_id.as_hex().to_string(),
         user_pk: user_pk.to_string(),
@@ -45,8 +43,6 @@ pub async fn create_recovery(
         .values(&new_recovery)
         .execute(conn)
         .expect("Failed to create recovery");
-
-    new_recovery
 }
 
 pub async fn user_exists(conn: &mut SqliteConnection, user_pk: String) -> bool {

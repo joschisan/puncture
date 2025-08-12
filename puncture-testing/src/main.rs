@@ -339,7 +339,7 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
 
     println!("Testing Bolt11 was successful!");
 
-    let offer = connection_a.bolt12_receive_variable_amount().await.unwrap();
+    let offer = connection_a.bolt12_receive().await.unwrap();
 
     node.bolt12_payment()
         .send_using_amount(&Offer::from_str(&offer).unwrap(), 100_000, None, None)
@@ -367,7 +367,7 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
 
     assert_payment(connection_a.next_event().await, 100_000, 0, "successful").await;
 
-    let offer = connection_b.bolt12_receive_variable_amount().await.unwrap();
+    let offer = connection_b.bolt12_receive().await.unwrap();
 
     connection_a
         .bolt12_send(Offer::from_str(&offer).unwrap(), 100_000)

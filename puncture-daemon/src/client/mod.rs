@@ -14,17 +14,31 @@ use tokio_stream::{Stream, StreamExt};
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
-use puncture_client_core::{AppEvent, Balance, ClientRpcRequest};
+use puncture_client_core::{
+    AppEvent, Balance, ClientRpcRequest, ENDPOINT_BOLT11_RECEIVE, ENDPOINT_BOLT11_SEND,
+    ENDPOINT_BOLT12_RECEIVE, ENDPOINT_BOLT12_SEND, ENDPOINT_RECOVER, ENDPOINT_REGISTER,
+    ENDPOINT_SET_RECOVERY_NAME,
+};
 
 use crate::AppState;
 
-macro_rules! method {
-    ($func:ident, $state:expr, $user_id:expr, $params:expr) => {{
-        match serde_json::from_value($params) {
-            Ok(request) => rpc::$func($state, $user_id, request).await.map(|response| {
-                serde_json::to_value(response).expect("Failed to serialize response")
-            }),
-            Err(_) => Err("Failed to deserialize request".to_string()),
+macro_rules! client_method {
+    ($func:ident, $state:expr, $user_id:expr, $params:expr, $auth:expr) => {{
+        async move {
+            let mut conn = $state.db.get_connection().await;
+
+            if $auth && !db::user_exists(&mut conn, $user_id.clone()).await {
+                return Err("Method requires a registered user".to_string());
+            }
+
+            drop(conn);
+
+            match serde_json::from_value($params) {
+                Ok(request) => rpc::$func($state, $user_id, request)
+                    .await
+                    .map(|response| serde_json::to_value(response).unwrap()),
+                Err(e) => Err(format!("Failed to deserialize request: {}", e)),
+            }
         }
     }};
 }
@@ -155,36 +169,25 @@ async fn handle_request(
 
     let request: ClientRpcRequest<Value> = serde_json::from_slice(&request)?;
 
-    let mut conn = state.db.get_connection().await;
-
-    let user_exists = db::user_exists(&mut conn, user_id.clone()).await;
-
-    drop(conn);
-
-    let response = if user_exists {
-        match request.method.as_str() {
-            "register" => method!(register, state, user_id, request.request),
-            "fees" => method!(fees, state, user_id, request.request),
-            "bolt11_receive" => {
-                method!(bolt11_receive, state, user_id, request.request)
-            }
-            "bolt12_receive_variable_amount" => method!(
-                bolt12_receive_variable_amount,
-                state,
-                user_id,
-                request.request
-            ),
-            "bolt11_send" => method!(bolt11_send, state, user_id, request.request),
-            "bolt12_send" => method!(bolt12_send, state, user_id, request.request),
-            "set_recovery_name" => method!(set_recovery_name, state, user_id, request.request),
-            "recover" => method!(recover, state, user_id, request.request),
-            _ => Err(format!("Method '{}' not found", request.method)),
+    let response = match request.method.as_str() {
+        ENDPOINT_REGISTER => client_method!(register, state, user_id, request.request, false).await,
+        ENDPOINT_BOLT11_RECEIVE => {
+            client_method!(bolt11_receive, state, user_id, request.request, true).await
         }
-    } else {
-        match request.method.as_str() {
-            "register" => method!(register, state, user_id, request.request),
-            _ => Err(format!("Method '{}' not found", request.method)),
+        ENDPOINT_BOLT12_RECEIVE => {
+            client_method!(bolt12_receive, state, user_id, request.request, true).await
         }
+        ENDPOINT_BOLT11_SEND => {
+            client_method!(bolt11_send, state, user_id, request.request, true).await
+        }
+        ENDPOINT_BOLT12_SEND => {
+            client_method!(bolt12_send, state, user_id, request.request, true).await
+        }
+        ENDPOINT_SET_RECOVERY_NAME => {
+            client_method!(set_recovery_name, state, user_id, request.request, true).await
+        }
+        ENDPOINT_RECOVER => client_method!(recover, state, user_id, request.request, true).await,
+        _ => Err(format!("Method '{}' not found", request.method)),
     };
 
     let response = serde_json::to_vec(&response).expect("Failed to serialize response");

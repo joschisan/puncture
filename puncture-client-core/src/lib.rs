@@ -2,6 +2,15 @@ use bitcoin::Network;
 use lightning_invoice::Bolt11Invoice;
 use serde::{Deserialize, Serialize};
 
+// RPC Method Endpoint Constants
+pub const ENDPOINT_REGISTER: &str = "register";
+pub const ENDPOINT_BOLT11_RECEIVE: &str = "bolt11_receive";
+pub const ENDPOINT_BOLT12_RECEIVE: &str = "bolt12_receive";
+pub const ENDPOINT_BOLT11_SEND: &str = "bolt11_send";
+pub const ENDPOINT_BOLT12_SEND: &str = "bolt12_send";
+pub const ENDPOINT_SET_RECOVERY_NAME: &str = "set_recovery_name";
+pub const ENDPOINT_RECOVER: &str = "recover";
+
 /// A helper struct for JSON-RPC requests over Iroh
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ClientRpcRequest<R> {
@@ -66,14 +75,6 @@ pub struct RegisterResponse {
     pub network: Network,
     /// The name of the daemon
     pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FeesResponse {
-    /// Fee rate in parts per million (PPM)
-    pub fee_ppm: u64,
-    /// Base fee in millisatoshis
-    pub base_fee_msat: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
