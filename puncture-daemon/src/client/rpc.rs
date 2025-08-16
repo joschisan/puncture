@@ -9,8 +9,8 @@ use tracing::{error, info};
 
 use puncture_client_core::{
     Bolt11ReceiveRequest, Bolt11ReceiveResponse, Bolt11SendRequest, Bolt12ReceiveResponse,
-    Bolt12SendRequest, RecoverRequest, RecoverResponse, RegisterRequest, RegisterResponse,
-    SetRecoveryNameRequest,
+    Bolt12SendRequest, OnchainSendRequest, OnchainSendResponse, RecoverRequest, RecoverResponse,
+    RegisterRequest, RegisterResponse, SetRecoveryNameRequest,
 };
 use puncture_core::unix_time;
 
@@ -351,6 +351,62 @@ async fn push_events(
     event_bus.send_balance_event(user_pk.clone(), balance_msat);
 
     event_bus.send_payment_event(user_pk, payment);
+}
+
+pub async fn onchain_send(
+    state: Arc<AppState>,
+    user_pk: String,
+    request: OnchainSendRequest,
+) -> Result<OnchainSendResponse, String> {
+    if request.amount_sats < 1000 {
+        return Err("The minimum amount is 1000 sats".to_string());
+    }
+
+    let mut conn = state.db.get_connection().await;
+
+    let balance_msat = crate::db::user_balance(&mut conn, user_pk.clone()).await;
+
+    if balance_msat < request.amount_sats * 1000 {
+        return Err("Insufficient balance to cover the amount".to_string());
+    }
+
+    if balance_msat < request.amount_sats * 1000 + state.args.onchain_base_fee_msat {
+        return Err("Insufficient balance to cover the fee".to_string());
+    }
+
+    let address = request
+        .address
+        .require_network(state.node.config().network)
+        .map_err(|_| "Invalid address for network")?;
+
+    let txid = state
+        .node
+        .onchain_payment()
+        .send_to_address(&address, request.amount_sats, None)
+        .map_err(|_| "Failed to send payment".to_string())?;
+
+    let record = db::create_send_payment(
+        &mut conn,
+        txid.to_byte_array(),
+        user_pk.clone(),
+        (request.amount_sats * 1000) as i64,
+        state.args.onchain_base_fee_msat as i64,
+        String::new(),
+        address.to_string(),
+        "successful".to_string(),
+        None,
+    )
+    .await;
+
+    push_events(
+        &mut conn,
+        state.event_bus.clone(),
+        user_pk,
+        record.into_payment(true),
+    )
+    .await;
+
+    Ok(OnchainSendResponse { txid })
 }
 
 pub async fn set_recovery_name(

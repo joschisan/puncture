@@ -6,7 +6,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::Context;
-
+use bitcoin::address::NetworkUnchecked;
+use bitcoin::{Address, Txid};
 use iroh::Endpoint;
 use iroh::endpoint::{Connection, RelayMode};
 use lightning::offers::offer::Offer;
@@ -18,9 +19,10 @@ use tracing::warn;
 use puncture_client_core::{
     AppEvent, Bolt11ReceiveRequest, Bolt11ReceiveResponse, Bolt11SendRequest,
     Bolt12ReceiveResponse, Bolt12SendRequest, ClientRpcRequest, ENDPOINT_BOLT11_RECEIVE,
-    ENDPOINT_BOLT11_SEND, ENDPOINT_BOLT12_RECEIVE, ENDPOINT_BOLT12_SEND, ENDPOINT_RECOVER,
-    ENDPOINT_REGISTER, ENDPOINT_SET_RECOVERY_NAME, RecoverRequest, RecoverResponse,
-    RegisterRequest, RegisterResponse, SetRecoveryNameRequest,
+    ENDPOINT_BOLT11_SEND, ENDPOINT_BOLT12_RECEIVE, ENDPOINT_BOLT12_SEND, ENDPOINT_ONCHAIN_SEND,
+    ENDPOINT_RECOVER, ENDPOINT_REGISTER, ENDPOINT_SET_RECOVERY_NAME, OnchainSendRequest,
+    OnchainSendResponse, RecoverRequest, RecoverResponse, RegisterRequest, RegisterResponse,
+    SetRecoveryNameRequest,
 };
 use puncture_core::db::Database;
 use puncture_core::{InviteCode, RecoveryCode, secret};
@@ -211,6 +213,23 @@ impl PunctureConnection {
             },
         )
         .await
+    }
+
+    /// Send an on-chain Bitcoin payment
+    pub async fn onchain_send(
+        &self,
+        address: Address<NetworkUnchecked>,
+        amount_sats: u64,
+    ) -> Result<Txid, String> {
+        self.request(
+            ENDPOINT_ONCHAIN_SEND,
+            OnchainSendRequest {
+                address,
+                amount_sats,
+            },
+        )
+        .await
+        .map(|response: OnchainSendResponse| response.txid)
     }
 
     /// Awaits the next event from the daemon

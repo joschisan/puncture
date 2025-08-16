@@ -93,6 +93,10 @@ struct Args {
     #[arg(long, env = "INVOICE_EXPIRY_SECS", default_value = "3600")]
     invoice_expiry_secs: u32,
 
+    /// Fixed base fee in millisatoshis added to all outgoing on-chain payments.
+    #[arg(long, env = "ONCHAIN_BASE_FEE_MSAT", default_value = "5000000")]
+    onchain_base_fee_msat: u64,
+
     /// Network address and port for the client interface to be served on.
     #[arg(long, env = "CLIENT_BIND", default_value = "0.0.0.0:8080")]
     client_bind: SocketAddr,

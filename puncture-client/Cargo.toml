@@ -5,6 +5,7 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
+bitcoin = { workspace = true }
 diesel = { workspace = true }
 iroh = { workspace = true }
 lightning = { workspace = true }

@@ -16,8 +16,8 @@ use tracing::{info, warn};
 
 use puncture_client_core::{
     AppEvent, Balance, ClientRpcRequest, ENDPOINT_BOLT11_RECEIVE, ENDPOINT_BOLT11_SEND,
-    ENDPOINT_BOLT12_RECEIVE, ENDPOINT_BOLT12_SEND, ENDPOINT_RECOVER, ENDPOINT_REGISTER,
-    ENDPOINT_SET_RECOVERY_NAME,
+    ENDPOINT_BOLT12_RECEIVE, ENDPOINT_BOLT12_SEND, ENDPOINT_ONCHAIN_SEND, ENDPOINT_RECOVER,
+    ENDPOINT_REGISTER, ENDPOINT_SET_RECOVERY_NAME,
 };
 
 use crate::AppState;
@@ -182,6 +182,9 @@ async fn handle_request(
         }
         ENDPOINT_BOLT12_SEND => {
             client_method!(bolt12_send, state, user_id, request.request, true).await
+        }
+        ENDPOINT_ONCHAIN_SEND => {
+            client_method!(onchain_send, state, user_id, request.request, true).await
         }
         ENDPOINT_SET_RECOVERY_NAME => {
             client_method!(set_recovery_name, state, user_id, request.request, true).await

@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use bitcoin::{address::NetworkUnchecked, Address};
 use lightning::offers::offer::{Amount, Offer};
 use lightning_invoice::{Bolt11Invoice, Bolt11InvoiceDescriptionRef};
 use lnurl_pay::{lud06::LnUrl, lud16::LightningAddress};
@@ -9,6 +10,7 @@ use serde::Deserialize;
 pub enum PaymentRequestWithAmount {
     Bolt11(Bolt11PaymentRequest),
     Bolt12(Bolt12PaymentRequest),
+    Onchain(OnchainPaymentRequest),
 }
 
 pub struct Bolt11PaymentRequest {
@@ -22,11 +24,17 @@ pub struct Bolt12PaymentRequest {
     pub amount_msat: u64,
 }
 
+pub struct OnchainPaymentRequest {
+    pub address: Address<NetworkUnchecked>,
+    pub amount_sats: u64,
+}
+
 impl PaymentRequestWithAmount {
     pub fn amount_msat(&self) -> u64 {
         match self {
             PaymentRequestWithAmount::Bolt11(request) => request.amount_msat,
             PaymentRequestWithAmount::Bolt12(request) => request.amount_msat,
+            PaymentRequestWithAmount::Onchain(request) => request.amount_sats * 1000,
         }
     }
 
@@ -41,6 +49,7 @@ impl PaymentRequestWithAmount {
                 .description()
                 .map(|description| description.to_string())
                 .unwrap_or_default(),
+            PaymentRequestWithAmount::Onchain(..) => String::new(),
         }
     }
 }
@@ -51,6 +60,7 @@ pub enum PaymentRequestWithoutAmount {
     Bolt12(Offer),
     LnUrl(LnUrl),
     LightningAddress(LightningAddress),
+    Onchain(Address<NetworkUnchecked>),
 }
 
 pub fn parse_with_amount(request: String) -> Option<PaymentRequestWithAmount> {
@@ -89,6 +99,10 @@ pub fn parse_without_amount(request: String) -> Option<PaymentRequestWithoutAmou
         return parse_without_amount(stripped.to_string());
     }
 
+    if let Some(stripped) = request.strip_prefix("bitcoin:") {
+        return parse_without_amount(stripped.to_string());
+    }
+
     if let Ok(invoice) = Bolt11Invoice::from_str(&request) {
         if invoice.amount_milli_satoshis().is_none() {
             return Some(PaymentRequestWithoutAmount::Bolt11(invoice));
@@ -109,6 +123,10 @@ pub fn parse_without_amount(request: String) -> Option<PaymentRequestWithoutAmou
         return Some(PaymentRequestWithoutAmount::LightningAddress(
             lightning_address,
         ));
+    }
+
+    if let Ok(address) = Address::from_str(&request) {
+        return Some(PaymentRequestWithoutAmount::Onchain(address));
     }
 
     None
@@ -144,6 +162,12 @@ pub async fn resolve(
                 invoice: resolve_endpoint(ln_address.endpoint(), amount_msat).await?,
                 amount_msat,
                 ln_address: Some(ln_address.to_string()),
+            }))
+        }
+        PaymentRequestWithoutAmount::Onchain(address) => {
+            Ok(PaymentRequestWithAmount::Onchain(OnchainPaymentRequest {
+                address: address.clone(),
+                amount_sats: amount_msat / 1000,
             }))
         }
     }

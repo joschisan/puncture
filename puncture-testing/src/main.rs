@@ -130,10 +130,10 @@ fn main() -> Result<()> {
         .to_invite()
         .unwrap();
 
-    runtime.block_on(run_test(node, invite))
+    runtime.block_on(run_test(node, invite, rpc))
 }
 
-async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
+async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode, rpc: Client) -> Result<()> {
     let client_a = PunctureClient::new("./data-dir-testing/client-a".to_string()).await;
     let client_b = PunctureClient::new("./data-dir-testing/client-b".to_string()).await;
 
@@ -486,7 +486,7 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
         .to_recovery()
         .unwrap();
 
-    let connection_c = client_c.register(invite).await.unwrap();
+    let connection_c = client_c.register(invite.clone()).await.unwrap();
 
     assert_eq!(
         connection_c.next_event().await,
@@ -510,6 +510,56 @@ async fn run_test(node: Arc<ldk_node::Node>, invite: InviteCode) -> Result<()> {
     assert_eq!(cli::list_users().unwrap().len(), 3);
 
     println!("Testing user recovery was successful!");
+
+    let client_d = PunctureClient::new("./data-dir-testing/client-d".to_string()).await;
+
+    let connection_d = client_d.register(invite).await.unwrap();
+
+    assert_eq!(
+        connection_d.next_event().await,
+        AppEvent::Balance(Balance { amount_msat: 0 })
+    );
+
+    let invoice = connection_d
+        .bolt11_receive(15_000_000, String::new())
+        .await
+        .unwrap();
+
+    node.bolt11_payment().send(&invoice, None).unwrap();
+
+    assert_eq!(
+        connection_d.next_event().await,
+        AppEvent::Balance(Balance {
+            amount_msat: 15_000_000
+        })
+    );
+
+    assert_payment(connection_d.next_event().await, 15_000_000, 0, "successful").await;
+
+    let send_txid = connection_d
+        .onchain_send(dummy_address_unchecked(), 10_000)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        connection_d.next_event().await,
+        AppEvent::Balance(Balance { amount_msat: 0 })
+    );
+
+    assert_payment(
+        connection_d.next_event().await,
+        10_000_000,
+        5_000_000,
+        "successful",
+    )
+    .await;
+
+    retry(
+        || rpc.get_mempool_entry(&send_txid),
+        "wait for send tx to enter the mempool",
+    )?;
+
+    println!("Testing onchain send was successful!");
 
     Ok(())
 }
@@ -544,11 +594,15 @@ async fn assert_payment(event: AppEvent, amount_msat: i64, fee_msat: i64, status
 }
 
 fn dummy_address() -> Address {
+    dummy_address_unchecked()
+        .require_network(Network::Regtest)
+        .expect("Dummy address should be valid for regtest network")
+}
+
+fn dummy_address_unchecked() -> Address<NetworkUnchecked> {
     "bcrt1qsurq86f2kdlce0tflgznehpzx275d93wvvxsml"
         .parse::<Address<NetworkUnchecked>>()
         .unwrap()
-        .require_network(Network::Regtest)
-        .expect("Dummy address should be valid for regtest network")
 }
 
 fn retry<T, E, F>(action: F, description: &str) -> Result<T>

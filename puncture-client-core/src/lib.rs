@@ -1,4 +1,5 @@
-use bitcoin::Network;
+use bitcoin::address::NetworkUnchecked;
+use bitcoin::{Address, Network, Txid};
 use lightning_invoice::Bolt11Invoice;
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +9,7 @@ pub const ENDPOINT_BOLT11_RECEIVE: &str = "bolt11_receive";
 pub const ENDPOINT_BOLT12_RECEIVE: &str = "bolt12_receive";
 pub const ENDPOINT_BOLT11_SEND: &str = "bolt11_send";
 pub const ENDPOINT_BOLT12_SEND: &str = "bolt12_send";
+pub const ENDPOINT_ONCHAIN_SEND: &str = "onchain_send";
 pub const ENDPOINT_SET_RECOVERY_NAME: &str = "set_recovery_name";
 pub const ENDPOINT_RECOVER: &str = "recover";
 
@@ -113,6 +115,20 @@ pub struct Bolt12SendRequest {
     pub offer: String,
     /// Amount override in millisatoshis
     pub amount_msat: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnchainSendRequest {
+    /// Bitcoin address to send to
+    pub address: Address<NetworkUnchecked>,
+    /// Amount in satoshis
+    pub amount_sats: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnchainSendResponse {
+    /// The transaction id
+    pub txid: Txid,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
